@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import { CustomerService } from './customer.service';
 import { TenantRequest } from '@middlewares/tenant.middleware';
+import { AuthRequest } from '@middlewares/auth.middleware';
 import { asyncHandler } from '@utils/asyncHandler';
-import { CreateCustomerInput, UpdateCustomerInput } from './customer.validation';
+import { CreateCustomerInput, UpdateCustomerInput, AddOpeningBalanceInput } from './customer.validation';
 
 export class CustomerController {
   private readonly customerService: CustomerService;
@@ -17,10 +18,10 @@ export class CustomerController {
   getAll = asyncHandler(async (req: Request, res: Response): Promise<Response> => {
     const { tenantId } = req as TenantRequest;
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
+    const limit = parseInt(req.query.limit as string) || 50;
     const search = req.query.search as string | undefined;
 
-    const result = await this.customerService.getPaginated(tenantId, page, limit, search);
+    const result = await this.customerService.getAll(tenantId, page, limit, search);
 
     return res.json({
       success: true,
@@ -28,8 +29,7 @@ export class CustomerController {
       meta: {
         total: result.total,
         page: result.page,
-        totalPages: result.totalPages,
-        limit,
+        limit: result.limit,
       },
     });
   });
@@ -41,7 +41,7 @@ export class CustomerController {
     const { tenantId } = req as TenantRequest;
     const { id } = req.params;
 
-    const customer = await this.customerService.getByIdOrFail(id, tenantId);
+    const customer = await this.customerService.getById(id, tenantId);
 
     return res.json({
       success: true,
@@ -54,9 +54,10 @@ export class CustomerController {
    */
   create = asyncHandler(async (req: Request, res: Response): Promise<Response> => {
     const { tenantId } = req as TenantRequest;
+    const { user } = req as AuthRequest;
     const data = req.body as CreateCustomerInput;
 
-    const customer = await this.customerService.create(tenantId, data);
+    const customer = await this.customerService.create(tenantId, data, user!.userId);
 
     return res.status(201).json({
       success: true,
@@ -83,33 +84,44 @@ export class CustomerController {
   });
 
   /**
-   * Delete a customer
+   * Add opening balance to customer
    */
-  delete = asyncHandler(async (req: Request, res: Response): Promise<Response> => {
+  addOpeningBalance = asyncHandler(async (req: Request, res: Response): Promise<Response> => {
     const { tenantId } = req as TenantRequest;
+    const { user } = req as AuthRequest;
     const { id } = req.params;
+    const data = req.body as AddOpeningBalanceInput;
 
-    await this.customerService.delete(id, tenantId);
+    const result = await this.customerService.addOpeningBalance(id, tenantId, data, user!.userId);
 
     return res.json({
       success: true,
-      message: 'Customer deleted successfully',
+      message: result.message,
+      data: { balance: result.balance },
     });
   });
 
   /**
-   * Search customers
+   * Get customer ledger
    */
-  search = asyncHandler(async (req: Request, res: Response): Promise<Response> => {
+  getCustomerLedger = asyncHandler(async (req: Request, res: Response): Promise<Response> => {
     const { tenantId } = req as TenantRequest;
-    const query = req.query.q as string;
-    const limit = parseInt(req.query.limit as string) || 10;
+    const { id } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
 
-    const customers = await this.customerService.search(query, tenantId, { take: limit });
+    const result = await this.customerService.getCustomerLedger(id, tenantId, page, limit);
 
     return res.json({
       success: true,
-      data: customers,
+      data: {
+        ledger: result.ledger,
+        summary: result.summary,
+      },
+      meta: {
+        page: result.page,
+        limit: result.limit,
+      },
     });
   });
 }
