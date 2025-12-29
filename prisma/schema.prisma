@@ -1,0 +1,269 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = "mysql://root@localhost:3306/kirana_saas"
+}
+
+model Tenant {
+  id               BigInt             @id @default(autoincrement())
+  name             String             @db.VarChar(100)
+  owner_name       String?            @db.VarChar(100)
+  phone            String             @db.VarChar(15)
+  email            String?            @db.VarChar(100)
+  gst_number       String?            @db.VarChar(20)
+  status           tenants_status?    @default(ACTIVE)
+  created_at       DateTime?          @default(now()) @db.DateTime(0)
+  updated_at       DateTime?          @default(now()) @db.DateTime(0)
+  categories       categories[]
+  customer_ledger  customer_ledger[]
+  customers        Customer[]
+  import_jobs      import_jobs[]
+  inventory        Inventory[]
+  invoices         Invoice[]
+  payments         Payment[]
+  product_variants product_variants[]
+  products         Product[]
+  users            User[]
+
+  @@map("tenants")
+}
+
+model User {
+  id            BigInt       @id @default(autoincrement())
+  tenant_id     BigInt
+  name          String?      @db.VarChar(100)
+  phone         String?      @db.VarChar(15)
+  email         String?      @db.VarChar(100)
+  password_hash String?      @db.VarChar(255)
+  is_active     Boolean?     @default(true)
+  created_at    DateTime?    @default(now()) @db.DateTime(0)
+  user_roles    user_roles[]
+  tenants       Tenant       @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "users_ibfk_1")
+
+  @@index([tenant_id], map: "tenant_id")
+  @@map("users")
+}
+
+model Customer {
+  id              BigInt            @id @default(autoincrement())
+  tenant_id       BigInt
+  name            String?           @db.VarChar(100)
+  phone           String?           @db.VarChar(15)
+  email           String?           @db.VarChar(100)
+  credit_balance  Decimal?          @default(0.00) @db.Decimal(10, 2)
+  created_at      DateTime?         @default(now()) @db.DateTime(0)
+  customer_ledger customer_ledger[]
+  tenants         Tenant            @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "customers_ibfk_1")
+  invoices        Invoice[]
+  payments        Payment[]
+
+  @@index([tenant_id], map: "idx_customer_tenant")
+  @@map("customers")
+}
+
+model Product {
+  id               BigInt             @id @default(autoincrement())
+  tenant_id        BigInt
+  category_id      BigInt?
+  name             String?            @db.VarChar(150)
+  product_variants product_variants[]
+  tenants          Tenant             @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "products_ibfk_1")
+  categories       categories?        @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "products_ibfk_2")
+
+  @@index([category_id], map: "category_id")
+  @@index([tenant_id], map: "tenant_id")
+  @@map("products")
+}
+
+model Inventory {
+  variant_id          BigInt           @id
+  tenant_id           BigInt
+  quantity            Int?             @default(0)
+  low_stock_threshold Int?             @default(5)
+  product_variants    product_variants @relation(fields: [variant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "inventory_ibfk_1")
+  tenants             Tenant           @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "inventory_ibfk_2")
+
+  @@index([tenant_id], map: "tenant_id")
+  @@map("inventory")
+}
+
+model Invoice {
+  id             BigInt           @id @default(autoincrement())
+  tenant_id      BigInt
+  customer_id    BigInt?
+  invoice_number String?          @unique(map: "invoice_number") @db.VarChar(50)
+  total_amount   Decimal?         @db.Decimal(10, 2)
+  gst_amount     Decimal?         @db.Decimal(10, 2)
+  status         invoices_status?
+  invoice_url    String?          @db.VarChar(255)
+  created_at     DateTime?        @default(now()) @db.DateTime(0)
+  invoice_items  InvoiceItem[]
+  tenants        Tenant           @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoices_ibfk_1")
+  customers      Customer?        @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoices_ibfk_2")
+  payments       Payment[]
+
+  @@index([customer_id], map: "customer_id")
+  @@index([tenant_id], map: "idx_invoice_tenant")
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id               BigInt            @id @default(autoincrement())
+  invoice_id       BigInt?
+  variant_id       BigInt?
+  quantity         Int?
+  price            Decimal?          @db.Decimal(10, 2)
+  invoices         Invoice?          @relation(fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoice_items_ibfk_1")
+  product_variants product_variants? @relation(fields: [variant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoice_items_ibfk_2")
+
+  @@index([invoice_id], map: "invoice_id")
+  @@index([variant_id], map: "variant_id")
+  @@map("invoice_items")
+}
+
+model Payment {
+  id             BigInt                 @id @default(autoincrement())
+  tenant_id      BigInt
+  customer_id    BigInt
+  invoice_id     BigInt?
+  amount         Decimal                @db.Decimal(10, 2)
+  payment_mode   payments_payment_mode?
+  reference_note String?                @db.VarChar(255)
+  created_at     DateTime?              @default(now()) @db.DateTime(0)
+  tenants        Tenant                 @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payments_ibfk_1")
+  customers      Customer               @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payments_ibfk_2")
+  invoices       Invoice?               @relation(fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payments_ibfk_3")
+
+  @@index([customer_id], map: "customer_id")
+  @@index([invoice_id], map: "invoice_id")
+  @@index([tenant_id], map: "tenant_id")
+  @@map("payments")
+}
+
+model categories {
+  id        BigInt    @id @default(autoincrement())
+  tenant_id BigInt
+  name      String?   @db.VarChar(100)
+  tenants   Tenant    @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "categories_ibfk_1")
+  products  Product[]
+
+  @@index([tenant_id], map: "tenant_id")
+}
+
+model customer_ledger {
+  id           BigInt                      @id @default(autoincrement())
+  tenant_id    BigInt
+  customer_id  BigInt
+  entry_type   customer_ledger_entry_type?
+  reference_id BigInt?
+  description  String?                     @db.VarChar(255)
+  amount       Decimal                     @db.Decimal(10, 2)
+  created_at   DateTime?                   @default(now()) @db.DateTime(0)
+  tenants      Tenant                      @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "customer_ledger_ibfk_1")
+  customers    Customer                    @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "customer_ledger_ibfk_2")
+
+  @@index([customer_id], map: "customer_id")
+  @@index([tenant_id, customer_id], map: "idx_ledger_customer")
+}
+
+model import_jobs {
+  id         BigInt              @id @default(autoincrement())
+  tenant_id  BigInt
+  type       import_jobs_type?
+  status     import_jobs_status?
+  file_url   String?             @db.VarChar(255)
+  created_at DateTime?           @default(now()) @db.DateTime(0)
+  tenants    Tenant              @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "import_jobs_ibfk_1")
+
+  @@index([tenant_id], map: "tenant_id")
+}
+
+model product_variants {
+  id            BigInt                      @id @default(autoincrement())
+  tenant_id     BigInt
+  product_id    BigInt
+  brand         String?                     @db.VarChar(100)
+  size          String?                     @db.VarChar(50)
+  packaging     product_variants_packaging?
+  price         Decimal?                    @db.Decimal(10, 2)
+  gst_percent   Decimal?                    @db.Decimal(5, 2)
+  sku           String?                     @db.VarChar(50)
+  is_active     Boolean?                    @default(true)
+  inventory     Inventory?
+  invoice_items InvoiceItem[]
+  tenants       Tenant                      @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "product_variants_ibfk_1")
+  products      Product                     @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "product_variants_ibfk_2")
+
+  @@index([tenant_id], map: "idx_variant_tenant")
+  @@index([product_id], map: "product_id")
+}
+
+model roles {
+  id         BigInt       @id @default(autoincrement())
+  name       roles_name?  @unique(map: "name")
+  user_roles user_roles[]
+}
+
+model user_roles {
+  user_id BigInt
+  role_id BigInt
+  users   User   @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "user_roles_ibfk_1")
+  roles   roles  @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "user_roles_ibfk_2")
+
+  @@id([user_id, role_id])
+  @@index([role_id], map: "role_id")
+}
+
+enum roles_name {
+  OWNER
+  MANAGER
+  CASHIER
+}
+
+enum import_jobs_type {
+  CUSTOMER
+  PRODUCT
+  INVENTORY
+}
+
+enum customer_ledger_entry_type {
+  OPENING_BALANCE
+  INVOICE
+  PAYMENT
+  ADJUSTMENT
+}
+
+enum import_jobs_status {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum product_variants_packaging {
+  POUCH
+  BOTTLE
+  CAN
+  BOX
+}
+
+enum payments_payment_mode {
+  CASH
+  UPI
+  CARD
+  BANK
+  ADJUSTMENT
+}
+
+enum invoices_status {
+  PAID
+  UNPAID
+}
+
+enum tenants_status {
+  ACTIVE
+  SUSPENDED
+}
