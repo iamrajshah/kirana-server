@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { CustomerController } from './customer.controller';
-import { authenticate } from '@middlewares/auth.middleware';
+import { authenticate, hasPermission } from '@middlewares/auth.middleware';
 import { extractTenant } from '@middlewares/tenant.middleware';
 import { validate } from '@middlewares/validate.middleware';
 import {
@@ -16,12 +16,46 @@ const controller = new CustomerController();
 router.use(authenticate);
 router.use(extractTenant);
 
-// Routes
-router.get('/', controller.getAll);
-router.get('/search', controller.search);
-router.get('/:id', validate(getCustomerByIdSchema), controller.getById);
-router.post('/', validate(createCustomerSchema), controller.create);
-router.put('/:id', validate(updateCustomerSchema), controller.update);
-router.delete('/:id', validate(getCustomerByIdSchema), controller.delete);
+/**
+ * @route   GET /customers
+ * @desc    Get all customers
+ * @access  CUSTOMER_VIEW permission
+ */
+router.get('/', hasPermission('CUSTOMER_VIEW'), controller.getAll);
+
+/**
+ * @route   GET /customers/search
+ * @desc    Search customers
+ * @access  CUSTOMER_VIEW permission
+ */
+router.get('/search', hasPermission('CUSTOMER_VIEW'), controller.search);
+
+/**
+ * @route   GET /customers/:id
+ * @desc    Get customer by ID
+ * @access  CUSTOMER_VIEW permission
+ */
+router.get('/:id', hasPermission('CUSTOMER_VIEW'), validate(getCustomerByIdSchema), controller.getById);
+
+/**
+ * @route   POST /customers
+ * @desc    Create customer
+ * @access  CUSTOMER_CREATE permission
+ */
+router.post('/', hasPermission('CUSTOMER_CREATE'), validate(createCustomerSchema), controller.create);
+
+/**
+ * @route   PUT /customers/:id
+ * @desc    Update customer
+ * @access  CUSTOMER_UPDATE permission
+ */
+router.put('/:id', hasPermission('CUSTOMER_UPDATE'), validate(updateCustomerSchema), controller.update);
+
+/**
+ * @route   DELETE /customers/:id
+ * @desc    Delete customer
+ * @access  CUSTOMER_DELETE permission
+ */
+router.delete('/:id', hasPermission('CUSTOMER_DELETE'), validate(getCustomerByIdSchema), controller.delete);
 
 export default router;
