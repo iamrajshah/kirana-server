@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import authRoutes from '@modules/auth/auth.routes';
 import customerRoutes from '@modules/customer/customer.routes';
 // TODO: Fix ledger module - currently commented out as Ledger/LedgerEntry models don't exist in schema
 // import ledgerRoutes from '@modules/ledger/ledger.routes';
@@ -6,6 +7,10 @@ import customerRoutes from '@modules/customer/customer.routes';
 const router = Router();
 
 // API version 1 routes
+// Public routes
+router.use('/auth', authRoutes);
+
+// Protected routes
 router.use('/customers', customerRoutes);
 // router.use('/ledgers', ledgerRoutes);
 
