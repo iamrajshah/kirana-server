@@ -69,12 +69,13 @@ model Product {
   tenant_id        BigInt
   category_id      BigInt?
   name             String?            @db.VarChar(150)
+  is_active        Boolean            @default(true)
   product_variants product_variants[]
   tenants          Tenant             @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "products_ibfk_1")
   categories       categories?        @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "products_ibfk_2")
 
   @@index([category_id], map: "category_id")
-  @@index([tenant_id], map: "tenant_id")
+  @@index([tenant_id, is_active], map: "idx_products_active")
   @@map("products")
 }
 
@@ -147,10 +148,11 @@ model categories {
   id        BigInt    @id @default(autoincrement())
   tenant_id BigInt
   name      String?   @db.VarChar(100)
+  is_active Boolean   @default(true)
   tenants   Tenant    @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "categories_ibfk_1")
   products  Product[]
 
-  @@index([tenant_id], map: "tenant_id")
+  @@index([tenant_id, is_active], map: "idx_categories_active")
 }
 
 model customer_ledger {

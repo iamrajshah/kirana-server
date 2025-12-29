@@ -2,6 +2,9 @@ import { Router } from 'express';
 import authRoutes from '@modules/auth/auth.routes';
 import userRoutes from '@modules/user/user.routes';
 import customerRoutes from '@modules/customer/customer.routes';
+import productRoutes from '@modules/product/product.routes';
+import variantRoutes from '@modules/product/variant.routes';
+import categoryRoutes from '@modules/category/category.routes';
 // TODO: Fix ledger module - currently commented out as Ledger/LedgerEntry models don't exist in schema
 // import ledgerRoutes from '@modules/ledger/ledger.routes';
 
@@ -14,6 +17,9 @@ router.use('/auth', authRoutes);
 // Protected routes
 router.use('/users', userRoutes);
 router.use('/customers', customerRoutes);
+router.use('/products', productRoutes);
+router.use('/variants', variantRoutes);
+router.use('/categories', categoryRoutes);
 // router.use('/ledgers', ledgerRoutes);
 
 // Health check
