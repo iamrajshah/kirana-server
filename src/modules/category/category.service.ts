@@ -2,6 +2,7 @@ import { categories } from '@prisma/client';
 import { CategoryRepository } from './category.repository';
 import { CreateCategoryInput, UpdateCategoryInput } from './category.validation';
 import { ConflictError, NotFoundError } from '@utils/errors';
+import { AuditLogger } from '@utils/auditLogger';
 
 export interface CategoryResponse {
   id: string;
@@ -36,6 +37,15 @@ export class CategoryService {
       tenant_id: tenantIdBigInt,
       name: data.name,
     });
+
+    // Audit log
+    AuditLogger.create(
+      tenantIdBigInt,
+      BigInt(_createdBy),
+      'category',
+      category.id,
+      { name: category.name, is_active: category.is_active }
+    );
 
     return this.formatCategoryResponse(category);
   }
@@ -89,7 +99,8 @@ export class CategoryService {
   async updateCategory(
     categoryId: string,
     tenantId: string,
-    data: UpdateCategoryInput
+    data: UpdateCategoryInput,
+    userId?: string
   ): Promise<CategoryResponse> {
     const categoryIdBigInt = BigInt(categoryId);
     const tenantIdBigInt = BigInt(tenantId);
@@ -119,6 +130,18 @@ export class CategoryService {
       }
     );
 
+    // Audit log (only if userId is available)
+    if (userId) {
+      AuditLogger.update(
+        tenantIdBigInt,
+        BigInt(userId),
+        'category',
+        categoryIdBigInt,
+        { name: existingCategory.name },
+        { name: updatedCategory.name }
+      );
+    }
+
     return this.formatCategoryResponse(updatedCategory);
   }
 
@@ -128,7 +151,8 @@ export class CategoryService {
   async updateCategoryStatus(
     categoryId: string,
     tenantId: string,
-    is_active: boolean
+    is_active: boolean,
+    userId?: string
   ): Promise<CategoryResponse> {
     const categoryIdBigInt = BigInt(categoryId);
     const tenantIdBigInt = BigInt(tenantId);
@@ -147,6 +171,18 @@ export class CategoryService {
       tenantIdBigInt,
       is_active
     );
+
+    // Audit log (only if userId is available)
+    if (userId) {
+      AuditLogger.statusChange(
+        tenantIdBigInt,
+        BigInt(userId),
+        'category',
+        categoryIdBigInt,
+        { is_active: existingCategory.is_active, name: existingCategory.name },
+        { is_active: updatedCategory.is_active, name: updatedCategory.name }
+      );
+    }
 
     return this.formatCategoryResponse(updatedCategory);
   }

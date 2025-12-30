@@ -1,6 +1,7 @@
 import { InventoryRepository } from './inventory.repository';
 import { NotFoundError, BadRequestError } from '@utils/errors';
 import { prisma } from '@config/database';
+import { AuditLogger } from '@utils/auditLogger';
 
 export class InventoryService {
   private inventoryRepository: InventoryRepository;
@@ -90,7 +91,8 @@ export class InventoryService {
     variant_id: bigint,
     tenant_id: bigint,
     quantity: number,
-    low_stock_threshold?: number
+    low_stock_threshold?: number,
+    userId?: string
   ) {
     // Validate variant exists and belongs to tenant
     const variant = await prisma.product_variants.findFirst({
@@ -131,6 +133,18 @@ export class InventoryService {
       );
     }
 
+    // Audit log (only if userId is available)
+    if (userId) {
+      AuditLogger.update(
+        tenant_id,
+        BigInt(userId),
+        'inventory',
+        variant_id,
+        existingInventory ? { quantity: existingInventory.quantity, low_stock_threshold: existingInventory.low_stock_threshold } : null,
+        { quantity, low_stock_threshold: low_stock_threshold || inventory.low_stock_threshold }
+      );
+    }
+
     return {
       variant_id: inventory.variant_id.toString(),
       quantity: inventory.quantity ?? 0,
@@ -143,7 +157,7 @@ export class InventoryService {
    * Adjust inventory (increment/decrement)
    * Only OWNER and MANAGER can adjust inventory
    */
-  async adjustInventory(variant_id: bigint, tenant_id: bigint, adjustment: number, reason?: string) {
+  async adjustInventory(variant_id: bigint, tenant_id: bigint, adjustment: number, reason?: string, userId?: string) {
     // Validate variant exists and belongs to tenant
     const variant = await prisma.product_variants.findFirst({
       where: {
@@ -174,6 +188,18 @@ export class InventoryService {
     }
 
     const inventory = await this.inventoryRepository.updateQuantity(variant_id, tenant_id, newQuantity);
+
+    // Audit log (only if userId is available)
+    if (userId) {
+      AuditLogger.update(
+        tenant_id,
+        BigInt(userId),
+        'inventory',
+        variant_id,
+        { quantity: currentQuantity, adjustment, reason },
+        { quantity: newQuantity }
+      );
+    }
 
     return {
       variant_id: inventory.variant_id.toString(),

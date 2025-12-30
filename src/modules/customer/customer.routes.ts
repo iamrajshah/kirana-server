@@ -9,6 +9,7 @@ import {
   getCustomerByIdSchema,
   addOpeningBalanceSchema,
   getCustomerLedgerSchema,
+  updateCustomerStatusSchema,
 } from './customer.validation';
 
 const router = Router();
@@ -49,6 +50,18 @@ router.patch(
   hasPermission('CUSTOMER_UPDATE'),
   validate(updateCustomerSchema),
   controller.update
+);
+
+/**
+ * @route   PATCH /customers/:id/status
+ * @desc    Update customer status
+ * @access  CUSTOMER_UPDATE permission
+ */
+router.patch(
+  '/:id/status',
+  hasPermission('CUSTOMER_UPDATE'),
+  validate(updateCustomerStatusSchema),
+  controller.updateCustomerStatus
 );
 
 /**

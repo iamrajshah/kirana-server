@@ -8,6 +8,7 @@ import categoryRoutes from '@modules/category/category.routes';
 import inventoryRoutes from '@modules/inventory/inventory.routes';
 import invoiceRoutes from '@modules/invoice/invoice.routes';
 import paymentRoutes from '@modules/payment/payment.routes';
+import reportsRoutes from '@modules/reports/reports.routes';
 
 const router = Router();
 
@@ -24,6 +25,7 @@ router.use('/categories', categoryRoutes);
 router.use('/inventory', inventoryRoutes);
 router.use('/invoices', invoiceRoutes);
 router.use('/payments', paymentRoutes);
+router.use('/reports', reportsRoutes);
 
 // Health check
 router.get('/health', (_req, res) => {

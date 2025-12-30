@@ -1,6 +1,7 @@
 import { Product, product_variants } from '@prisma/client';
 import { ProductRepository, VariantRepository } from './product.repository';
 import { CategoryRepository } from '../category/category.repository';
+import { ReportsRepository } from '../reports/reports.repository';
 import {
   CreateProductInput,
   UpdateProductInput,
@@ -8,6 +9,7 @@ import {
   UpdateVariantInput,
 } from './product.validation';
 import { ConflictError, NotFoundError } from '@utils/errors';
+import { AuditLogger } from '@utils/auditLogger';
 
 export interface ProductResponse {
   id: string;
@@ -32,11 +34,13 @@ export class ProductService {
   private readonly productRepository: ProductRepository;
   private readonly variantRepository: VariantRepository;
   private readonly categoryRepository: CategoryRepository;
+  private readonly reportsRepository: ReportsRepository;
 
   constructor() {
     this.productRepository = new ProductRepository();
     this.variantRepository = new VariantRepository();
     this.categoryRepository = new CategoryRepository();
+    this.reportsRepository = new ReportsRepository();
   }
 
   /**
@@ -74,6 +78,15 @@ export class ProductService {
       name: data.name,
       category_id: data.category_id ? BigInt(data.category_id) : null,
     });
+
+    // Audit log
+    AuditLogger.create(
+      tenantIdBigInt,
+      BigInt(_createdBy),
+      'product',
+      product.id,
+      { name: product.name, category_id: product.category_id?.toString(), is_active: product.is_active }
+    );
 
     return this.formatProductResponse(product);
   }
@@ -127,7 +140,8 @@ export class ProductService {
   async updateProduct(
     productId: string,
     tenantId: string,
-    data: UpdateProductInput
+    data: UpdateProductInput,
+    userId?: string
   ): Promise<ProductResponse> {
     const productIdBigInt = BigInt(productId);
     const tenantIdBigInt = BigInt(tenantId);
@@ -172,6 +186,18 @@ export class ProductService {
       }
     );
 
+    // Audit log (only if userId is available)
+    if (userId) {
+      AuditLogger.update(
+        tenantIdBigInt,
+        BigInt(userId),
+        'product',
+        productIdBigInt,
+        { name: existingProduct.name, category_id: existingProduct.category_id?.toString() },
+        { name: updatedProduct.name, category_id: updatedProduct.category_id?.toString() }
+      );
+    }
+
     return this.formatProductResponse(updatedProduct);
   }
 
@@ -181,7 +207,8 @@ export class ProductService {
   async updateProductStatus(
     productId: string,
     tenantId: string,
-    is_active: boolean
+    is_active: boolean,
+    userId?: string
   ): Promise<ProductResponse> {
     const productIdBigInt = BigInt(productId);
     const tenantIdBigInt = BigInt(tenantId);
@@ -195,11 +222,43 @@ export class ProductService {
       throw new NotFoundError('Product not found');
     }
 
+    // If deactivating the product, check if any variant is referenced in invoices
+    if (!is_active && existingProduct.is_active) {
+      // Get all variants for this product
+      const variants = await this.variantRepository.findByProduct(productIdBigInt);
+      
+      // Check each variant for invoice references
+      for (const variant of variants) {
+        const isReferenced = await this.reportsRepository.isVariantReferencedByInvoices(
+          variant.id,
+          tenantIdBigInt
+        );
+        
+        if (isReferenced) {
+          throw new ConflictError(
+            `Cannot deactivate product. Variant "${variant.brand} ${variant.size} ${variant.packaging}" (SKU: ${variant.sku}) is referenced in invoices. Consider keeping it active or creating a new variant.`
+          );
+        }
+      }
+    }
+
     const updatedProduct = await this.productRepository.updateStatus(
       productIdBigInt,
       tenantIdBigInt,
       is_active
     );
+
+    // Audit log (only if userId is available)
+    if (userId) {
+      AuditLogger.statusChange(
+        tenantIdBigInt,
+        BigInt(userId),
+        'product',
+        productIdBigInt,
+        { is_active: existingProduct.is_active, name: existingProduct.name },
+        { is_active: updatedProduct.is_active, name: updatedProduct.name }
+      );
+    }
 
     return this.formatProductResponse(updatedProduct);
   }
@@ -255,6 +314,15 @@ export class ProductService {
       sku: data.sku,
     });
 
+    // Audit log
+    AuditLogger.create(
+      tenantIdBigInt,
+      BigInt(_createdBy),
+      'variant',
+      variant.id,
+      { brand: variant.brand, size: variant.size, packaging: variant.packaging, price: Number(variant.price), sku: variant.sku }
+    );
+
     return this.formatVariantResponse(variant);
   }
 
@@ -264,7 +332,8 @@ export class ProductService {
   async updateVariant(
     variantId: string,
     tenantId: string,
-    data: UpdateVariantInput
+    data: UpdateVariantInput,
+    userId?: string
   ): Promise<VariantResponse> {
     const variantIdBigInt = BigInt(variantId);
     const tenantIdBigInt = BigInt(tenantId);
@@ -276,6 +345,20 @@ export class ProductService {
     );
     if (!existingVariant) {
       throw new NotFoundError('Variant not found');
+    }
+
+    // If deactivating the variant, check if it's referenced in invoices
+    if (data.is_active === false && existingVariant.is_active) {
+      const isReferenced = await this.reportsRepository.isVariantReferencedByInvoices(
+        variantIdBigInt,
+        tenantIdBigInt
+      );
+      
+      if (isReferenced) {
+        throw new ConflictError(
+          `Cannot deactivate variant "${existingVariant.brand} ${existingVariant.size} ${existingVariant.packaging}" (SKU: ${existingVariant.sku}). It is referenced in existing invoices. Consider creating a new variant instead.`
+        );
+      }
     }
 
     // If SKU is being updated, check uniqueness
@@ -291,6 +374,47 @@ export class ProductService {
       tenantIdBigInt,
       data
     );
+
+    // Audit log (only if userId is available)
+    if (userId) {
+      const isStatusChange = data.is_active !== undefined;
+      const oldValue = {
+        brand: existingVariant.brand,
+        size: existingVariant.size,
+        packaging: existingVariant.packaging,
+        price: Number(existingVariant.price),
+        sku: existingVariant.sku,
+        is_active: existingVariant.is_active
+      };
+      const newValue = {
+        brand: updatedVariant.brand,
+        size: updatedVariant.size,
+        packaging: updatedVariant.packaging,
+        price: Number(updatedVariant.price),
+        sku: updatedVariant.sku,
+        is_active: updatedVariant.is_active
+      };
+      
+      if (isStatusChange) {
+        AuditLogger.statusChange(
+          tenantIdBigInt,
+          BigInt(userId),
+          'variant',
+          variantIdBigInt,
+          oldValue,
+          newValue
+        );
+      } else {
+        AuditLogger.update(
+          tenantIdBigInt,
+          BigInt(userId),
+          'variant',
+          variantIdBigInt,
+          oldValue,
+          newValue
+        );
+      }
+    }
 
     return this.formatVariantResponse(updatedVariant);
   }

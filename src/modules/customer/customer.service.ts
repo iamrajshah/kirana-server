@@ -3,6 +3,7 @@ import { CustomerRepository } from './customer.repository';
 import { LedgerService } from './ledger.service';
 import { CreateCustomerInput, UpdateCustomerInput, AddOpeningBalanceInput } from './customer.validation';
 import { ConflictError, NotFoundError } from '@utils/errors';
+import { AuditLogger } from '@utils/auditLogger';
 
 export interface CustomerResponse {
   id: string;
@@ -10,6 +11,7 @@ export interface CustomerResponse {
   phone: string | null;
   email: string | null;
   credit_balance: number;
+  is_active: boolean;
   created_at: Date | null;
 }
 
@@ -84,6 +86,15 @@ export class CustomerService {
       await this.repository.updateBalance(customer.id, tenantIdBigInt, data.opening_balance);
     }
 
+    // Audit log
+    AuditLogger.create(
+      tenantIdBigInt,
+      BigInt(createdBy),
+      'customer',
+      customer.id,
+      { name: customer.name, phone: customer.phone, email: customer.email, credit_balance: Number(customer.credit_balance) }
+    );
+
     return this.formatCustomerResponse(customer);
   }
 
@@ -94,7 +105,8 @@ export class CustomerService {
     tenantId: string,
     page: number = 1,
     limit: number = 50,
-    searchQuery?: string
+    searchQuery?: string,
+    includeInactive: boolean = false
   ): Promise<{ customers: CustomerResponse[]; total: number; page: number; limit: number }> {
     const tenantIdBigInt = BigInt(tenantId);
     const skip = (page - 1) * limit;
@@ -103,6 +115,7 @@ export class CustomerService {
       skip,
       take: limit,
       searchQuery,
+      includeInactive,
     });
 
     return {
@@ -131,7 +144,7 @@ export class CustomerService {
   /**
    * Update customer
    */
-  async update(customerId: string, tenantId: string, data: UpdateCustomerInput): Promise<CustomerResponse> {
+  async update(customerId: string, tenantId: string, data: UpdateCustomerInput, userId?: string): Promise<CustomerResponse> {
     const customerIdBigInt = BigInt(customerId);
     const tenantIdBigInt = BigInt(tenantId);
 
@@ -158,6 +171,18 @@ export class CustomerService {
     }
 
     const updatedCustomer = await this.repository.updateCustomer(customerIdBigInt, tenantIdBigInt, data);
+
+    // Audit log (only if userId is available)
+    if (userId) {
+      AuditLogger.update(
+        tenantIdBigInt,
+        BigInt(userId),
+        'customer',
+        customerIdBigInt,
+        { name: existingCustomer.name, phone: existingCustomer.phone, email: existingCustomer.email },
+        { name: updatedCustomer.name, phone: updatedCustomer.phone, email: updatedCustomer.email }
+      );
+    }
 
     return this.formatCustomerResponse(updatedCustomer);
   }
@@ -217,6 +242,48 @@ export class CustomerService {
   }
 
   /**
+   * Update customer status
+   */
+  async updateCustomerStatus(
+    customerId: string,
+    tenantId: string,
+    is_active: boolean,
+    userId?: string
+  ): Promise<CustomerResponse> {
+    const customerIdBigInt = BigInt(customerId);
+    const tenantIdBigInt = BigInt(tenantId);
+
+    // Check if customer exists
+    const existingCustomer = await this.repository.findByIdAndTenant(
+      customerIdBigInt,
+      tenantIdBigInt
+    );
+    if (!existingCustomer) {
+      throw new NotFoundError('Customer not found');
+    }
+
+    const updatedCustomer = await this.repository.updateStatus(
+      customerIdBigInt,
+      tenantIdBigInt,
+      is_active
+    );
+
+    // Audit log (only if userId is available)
+    if (userId) {
+      AuditLogger.statusChange(
+        tenantIdBigInt,
+        BigInt(userId),
+        'customer',
+        customerIdBigInt,
+        { is_active: existingCustomer.is_active, name: existingCustomer.name },
+        { is_active: updatedCustomer.is_active, name: updatedCustomer.name }
+      );
+    }
+
+    return this.formatCustomerResponse(updatedCustomer);
+  }
+
+  /**
    * Get customer ledger
    */
   async getCustomerLedger(
@@ -267,6 +334,7 @@ export class CustomerService {
       phone: customer.phone,
       email: customer.email,
       credit_balance: Number(customer.credit_balance),
+      is_active: customer.is_active ?? true,
       created_at: customer.created_at,
     };
   }

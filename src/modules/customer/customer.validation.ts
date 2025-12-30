@@ -43,6 +43,18 @@ export const addOpeningBalanceSchema = z.object({
   }),
 });
 
+export const updateCustomerStatusSchema = z.object({
+  params: z.object({
+    id: z.string().min(1, 'Customer ID is required'),
+  }),
+  body: z.object({
+    is_active: z.boolean({
+      required_error: 'is_active is required',
+      invalid_type_error: 'is_active must be a boolean',
+    }),
+  }),
+});
+
 export const getCustomerLedgerSchema = z.object({
   params: z.object({
     id: z.string().min(1, 'Customer ID is required'),
@@ -56,3 +68,4 @@ export const getCustomerLedgerSchema = z.object({
 export type CreateCustomerInput = z.infer<typeof createCustomerSchema>['body'];
 export type UpdateCustomerInput = z.infer<typeof updateCustomerSchema>['body'];
 export type AddOpeningBalanceInput = z.infer<typeof addOpeningBalanceSchema>['body'];
+export type UpdateCustomerStatusInput = z.infer<typeof updateCustomerStatusSchema>['body'];

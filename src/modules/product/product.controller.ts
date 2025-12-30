@@ -78,10 +78,11 @@ export class ProductController {
    */
   updateProduct = asyncHandler(async (req: Request, res: Response): Promise<Response> => {
     const { tenantId } = req as TenantRequest;
+    const { user } = req as AuthRequest;
     const { id } = req.params;
     const data = req.body as UpdateProductInput;
 
-    const product = await this.productService.updateProduct(id, tenantId, data);
+    const product = await this.productService.updateProduct(id, tenantId, data, user?.userId);
 
     return res.json({
       success: true,
@@ -95,10 +96,11 @@ export class ProductController {
    */
   updateProductStatus = asyncHandler(async (req: Request, res: Response): Promise<Response> => {
     const { tenantId } = req as TenantRequest;
+    const { user } = req as AuthRequest;
     const { id } = req.params;
     const { is_active } = req.body as UpdateProductStatusInput;
 
-    const product = await this.productService.updateProductStatus(id, tenantId, is_active);
+    const product = await this.productService.updateProductStatus(id, tenantId, is_active, user?.userId);
 
     return res.json({
       success: true,
@@ -130,10 +132,11 @@ export class ProductController {
    */
   updateVariant = asyncHandler(async (req: Request, res: Response): Promise<Response> => {
     const { tenantId } = req as TenantRequest;
+    const { user } = req as AuthRequest;
     const { id } = req.params;
     const data = req.body as UpdateVariantInput;
 
-    const variant = await this.productService.updateVariant(id, tenantId, data);
+    const variant = await this.productService.updateVariant(id, tenantId, data, user?.userId);
 
     return res.json({
       success: true,
