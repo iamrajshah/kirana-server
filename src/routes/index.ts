@@ -10,6 +10,7 @@ import invoiceRoutes from '@modules/invoice/invoice.routes';
 import paymentRoutes from '@modules/payment/payment.routes';
 import reportsRoutes from '@modules/reports/reports.routes';
 import importRoutes from '@modules/import/import.routes';
+import dashboardRoutes from '@modules/dashboard/dashboard.routes';
 
 const router = Router();
 
@@ -18,6 +19,7 @@ const router = Router();
 router.use('/auth', authRoutes);
 
 // Protected routes
+router.use('/dashboard', dashboardRoutes);
 router.use('/users', userRoutes);
 router.use('/customers', customerRoutes);
 router.use('/products', productRoutes);
