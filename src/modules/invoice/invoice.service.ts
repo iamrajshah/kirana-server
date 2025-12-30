@@ -14,18 +14,9 @@ export class InvoiceService {
   }
 
   /**
-   * Create invoice with atomic transaction
-   * Steps:
-   * 1. Validate customer exists
-   * 2. Validate all variants exist and both variant.is_active and product.is_active are true
-   * 3. Check inventory.quantity >= item.quantity for each item
-   * 4. Generate invoice number
-   * 5. Calculate total amount
-   * 6. Create invoice
-   * 7. Create invoice_items
-   * 8. Reduce inventory quantities
-   * 9. Create ledger entry (INVOICE type)
-   * 10. Update customer.credit_balance
+   * Create invoice with atomic transaction and idempotency support
+   * Idempotency is enforced using the unique constraint on (tenant_id, idempotency_key)
+   * If a duplicate idempotency key is provided, returns the existing invoice instead of creating a new one
    */
   async createInvoice(
     tenant_id: bigint,
@@ -33,8 +24,24 @@ export class InvoiceService {
     items: Array<{ variant_id: string; quantity: number; price: number }>,
     gst_amount: number,
     invoice_url: string | undefined,
-    created_by: bigint
+    created_by: bigint,
+    idempotency_key?: string
   ) {
+    // If idempotency key is provided, check for existing invoice
+    if (idempotency_key) {
+      const existingInvoice = await prisma.invoice.findFirst({
+        where: {
+          tenant_id,
+          idempotency_key,
+        },
+      });
+
+      if (existingInvoice) {
+        // Return existing invoice with full details
+        return this.getInvoiceById(existingInvoice.id, tenant_id);
+      }
+    }
+
     // Validate customer exists
     const customer = await prisma.customer.findFirst({
       where: {
@@ -47,8 +54,8 @@ export class InvoiceService {
       throw new NotFoundError('Customer not found');
     }
 
-    // Use Prisma transaction for atomicity
-    const result = await prisma.$transaction(async (tx) => {
+    // Use Prisma transaction for atomicity with increased timeout for complex operations
+    const invoice = await prisma.$transaction(async (tx) => {
       // Step 1: Validate all variants and check inventory
       for (const item of items) {
         const variant_id = BigInt(item.variant_id);
@@ -107,9 +114,9 @@ export class InvoiceService {
       // Step 3: Calculate total amount
       const total_amount = items.reduce((sum, item) => sum + item.price * item.quantity, 0) + gst_amount;
 
-      // Step 4: Create invoice
-      const invoice = await this.invoiceRepository.createInvoice(
-        {
+      // Step 4: Create invoice with idempotency key
+      const invoice = await tx.invoice.create({
+        data: {
           tenant_id,
           customer_id,
           invoice_number,
@@ -117,9 +124,9 @@ export class InvoiceService {
           gst_amount,
           status: 'UNPAID',
           invoice_url,
+          idempotency_key, // Store idempotency key (can be null)
         },
-        tx
-      );
+      });
 
       // Step 5: Create invoice items
       const invoice_items = items.map((item) => ({
@@ -131,7 +138,7 @@ export class InvoiceService {
 
       await this.invoiceRepository.createInvoiceItems(invoice_items, tx);
 
-      // Step 6: Reduce inventory quantities
+      // Step 6: Reduce inventory quantities with optimistic locking
       for (const item of items) {
         await this.inventoryRepository.reduceQuantity(
           BigInt(item.variant_id),
@@ -154,19 +161,43 @@ export class InvoiceService {
         },
       });
 
-      // Step 8: Update customer balance
-      await tx.customer.update({
+      // Step 8: Update customer balance with optimistic locking
+      const currentCustomer = await tx.customer.findUnique({
+        where: { id: customer_id },
+      });
+
+      if (!currentCustomer) {
+        throw new NotFoundError('Customer not found');
+      }
+
+      const customerVersion = currentCustomer.version;
+
+      const updatedCustomer = await tx.customer.updateMany({
         where: {
           id: customer_id,
+          version: customerVersion, // Only update if version hasn't changed
         },
         data: {
           credit_balance: {
             increment: total_amount,
           },
+          version: {
+            increment: 1,
+          },
         },
       });
 
+      // If no rows updated, version conflict
+      if (updatedCustomer.count === 0) {
+        throw new Error(
+          'Customer balance update failed due to concurrent modification. Please retry the operation.'
+        );
+      }
+
       return invoice;
+    }, {
+      maxWait: 10000, // Wait up to 10s to start transaction
+      timeout: 30000, // Transaction timeout 30s
     });
 
     // Audit log
@@ -174,18 +205,19 @@ export class InvoiceService {
       tenant_id,
       created_by,
       'invoice',
-      result.id,
+      invoice.id,
       {
-        invoice_number: result.invoice_number,
+        invoice_number: invoice.invoice_number,
         customer_id: customer_id.toString(),
-        total_amount: Number(result.total_amount),
+        total_amount: Number(invoice.total_amount),
         gst_amount,
-        items_count: items.length
+        items_count: items.length,
+        idempotency_key: idempotency_key || null,
       }
     );
 
     // Fetch the created invoice with all details
-    return this.getInvoiceById(result.id, tenant_id);
+    return this.getInvoiceById(invoice.id, tenant_id);
   }
 
   /**

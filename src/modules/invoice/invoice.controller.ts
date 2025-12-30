@@ -15,7 +15,10 @@ export class InvoiceController {
     const { user } = req as AuthRequest;
     const tenant_id = BigInt(tenantId);
     const created_by = BigInt(user!.userId);
-    const { customer_id, items, gst_amount, invoice_url } = req.body;
+    const { customer_id, items, gst_amount, invoice_url, idempotency_key } = req.body;
+    
+    // Idempotency key from header takes precedence over body
+    const idempotencyKey = req.headers['idempotency-key'] as string || idempotency_key;
 
     const invoice = await this.invoiceService.createInvoice(
       tenant_id,
@@ -23,7 +26,8 @@ export class InvoiceController {
       items,
       gst_amount || 0,
       invoice_url,
-      created_by
+      created_by,
+      idempotencyKey
     );
 
     res.status(201).json({
