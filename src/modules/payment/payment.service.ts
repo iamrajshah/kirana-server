@@ -1,6 +1,7 @@
 import { PaymentRepository } from './payment.repository';
 import { NotFoundError, BadRequestError } from '@utils/errors';
 import { prisma } from '@config/database';
+import { AuditLogger } from '@utils/auditLogger';
 
 export class PaymentService {
   private paymentRepository: PaymentRepository;
@@ -121,6 +122,21 @@ export class PaymentService {
 
       return payment;
     });
+
+    // Audit log
+    AuditLogger.create(
+      tenant_id,
+      created_by,
+      'payment',
+      result.id,
+      {
+        customer_id: customer_id.toString(),
+        amount,
+        payment_mode,
+        invoice_id: invoice_id || null,
+        reference_note: reference_note || null
+      }
+    );
 
     // Fetch the created payment with all details
     return this.getPaymentById(result.id, tenant_id);

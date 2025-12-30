@@ -3,7 +3,7 @@ import { CustomerService } from './customer.service';
 import { TenantRequest } from '@middlewares/tenant.middleware';
 import { AuthRequest } from '@middlewares/auth.middleware';
 import { asyncHandler } from '@utils/asyncHandler';
-import { CreateCustomerInput, UpdateCustomerInput, AddOpeningBalanceInput } from './customer.validation';
+import { CreateCustomerInput, UpdateCustomerInput, AddOpeningBalanceInput, UpdateCustomerStatusInput } from './customer.validation';
 
 export class CustomerController {
   private readonly customerService: CustomerService;
@@ -20,8 +20,9 @@ export class CustomerController {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 50;
     const search = req.query.search as string | undefined;
+    const includeInactive = req.query.includeInactive === 'true';
 
-    const result = await this.customerService.getAll(tenantId, page, limit, search);
+    const result = await this.customerService.getAll(tenantId, page, limit, search, includeInactive);
 
     return res.json({
       success: true,
@@ -71,10 +72,11 @@ export class CustomerController {
    */
   update = asyncHandler(async (req: Request, res: Response): Promise<Response> => {
     const { tenantId } = req as TenantRequest;
+    const { user } = req as AuthRequest;
     const { id } = req.params;
     const data = req.body as UpdateCustomerInput;
 
-    const customer = await this.customerService.update(id, tenantId, data);
+    const customer = await this.customerService.update(id, tenantId, data, user?.userId);
 
     return res.json({
       success: true,
@@ -98,6 +100,24 @@ export class CustomerController {
       success: true,
       message: result.message,
       data: { balance: result.balance },
+    });
+  });
+
+  /**
+   * Update customer status
+   */
+  updateCustomerStatus = asyncHandler(async (req: Request, res: Response): Promise<Response> => {
+    const { tenantId } = req as TenantRequest;
+    const { user } = req as AuthRequest;
+    const { id } = req.params;
+    const { is_active } = req.body as UpdateCustomerStatusInput;
+
+    const customer = await this.customerService.updateCustomerStatus(id, tenantId, is_active, user?.userId);
+
+    return res.json({
+      success: true,
+      message: 'Customer status updated successfully',
+      data: customer,
     });
   });
 

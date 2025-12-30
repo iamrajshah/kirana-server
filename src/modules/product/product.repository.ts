@@ -187,6 +187,17 @@ export class VariantRepository {
   }
 
   /**
+   * Find all variants for a product
+   */
+  async findByProduct(product_id: bigint): Promise<product_variants[]> {
+    return prisma.product_variants.findMany({
+      where: {
+        product_id,
+      },
+    });
+  }
+
+  /**
    * Find variant by SKU within tenant
    */
   async findBySKU(sku: string, tenant_id: string): Promise<product_variants | null> {

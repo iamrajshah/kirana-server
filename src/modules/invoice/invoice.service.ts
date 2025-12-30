@@ -2,6 +2,7 @@ import { InvoiceRepository } from './invoice.repository';
 import { InventoryRepository } from '../inventory/inventory.repository';
 import { NotFoundError, BadRequestError } from '@utils/errors';
 import { prisma } from '@config/database';
+import { AuditLogger } from '@utils/auditLogger';
 
 export class InvoiceService {
   private invoiceRepository: InvoiceRepository;
@@ -167,6 +168,21 @@ export class InvoiceService {
 
       return invoice;
     });
+
+    // Audit log
+    AuditLogger.create(
+      tenant_id,
+      created_by,
+      'invoice',
+      result.id,
+      {
+        invoice_number: result.invoice_number,
+        customer_id: customer_id.toString(),
+        total_amount: Number(result.total_amount),
+        gst_amount,
+        items_count: items.length
+      }
+    );
 
     // Fetch the created invoice with all details
     return this.getInvoiceById(result.id, tenant_id);

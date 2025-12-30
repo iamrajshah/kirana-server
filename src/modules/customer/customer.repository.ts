@@ -79,10 +79,12 @@ export class CustomerRepository extends BaseRepository<
       skip?: number;
       take?: number;
       searchQuery?: string;
+      includeInactive?: boolean;
     }
   ): Promise<{ customers: Customer[]; total: number }> {
     const where: Prisma.CustomerWhereInput = {
       tenant_id: tenantId,
+      ...(!options?.includeInactive && { is_active: true }),
       ...(options?.searchQuery && {
         OR: [
           { name: { contains: options.searchQuery } },
@@ -141,6 +143,25 @@ export class CustomerRepository extends BaseRepository<
       },
       data: {
         credit_balance: balance,
+      },
+    });
+  }
+
+  /**
+   * Update customer status
+   */
+  async updateStatus(
+    customerId: bigint,
+    tenantId: bigint,
+    is_active: boolean
+  ): Promise<Customer> {
+    return prisma.customer.update({
+      where: {
+        id: customerId,
+        tenant_id: tenantId,
+      },
+      data: {
+        is_active,
       },
     });
   }

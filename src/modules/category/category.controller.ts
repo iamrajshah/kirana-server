@@ -72,10 +72,11 @@ export class CategoryController {
    */
   updateCategory = asyncHandler(async (req: Request, res: Response): Promise<Response> => {
     const { tenantId } = req as TenantRequest;
+    const { user } = req as AuthRequest;
     const { id } = req.params;
     const data = req.body as UpdateCategoryInput;
 
-    const category = await this.categoryService.updateCategory(id, tenantId, data);
+    const category = await this.categoryService.updateCategory(id, tenantId, data, user?.userId);
 
     return res.json({
       success: true,
@@ -89,10 +90,11 @@ export class CategoryController {
    */
   updateCategoryStatus = asyncHandler(async (req: Request, res: Response): Promise<Response> => {
     const { tenantId } = req as TenantRequest;
+    const { user } = req as AuthRequest;
     const { id } = req.params;
     const { is_active } = req.body as UpdateCategoryStatusInput;
 
-    const category = await this.categoryService.updateCategoryStatus(id, tenantId, is_active);
+    const category = await this.categoryService.updateCategoryStatus(id, tenantId, is_active, user?.userId);
 
     return res.json({
       success: true,

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { InventoryService } from './inventory.service';
 import { TenantRequest } from '@middlewares/tenant.middleware';
+import { AuthRequest } from '@middlewares/auth.middleware';
 
 export class InventoryController {
   private inventoryService: InventoryService;
@@ -60,6 +61,7 @@ export class InventoryController {
 
   updateInventory = async (req: Request, res: Response) => {
     const { tenantId } = req as TenantRequest;
+    const { user } = req as AuthRequest;
     const variant_id = BigInt(req.params.variantId);
     const tenant_id = BigInt(tenantId);
     const { quantity, low_stock_threshold } = req.body;
@@ -68,7 +70,8 @@ export class InventoryController {
       variant_id,
       tenant_id,
       quantity,
-      low_stock_threshold
+      low_stock_threshold,
+      user?.userId
     );
 
     res.json({
@@ -80,11 +83,12 @@ export class InventoryController {
 
   adjustInventory = async (req: Request, res: Response) => {
     const { tenantId } = req as TenantRequest;
+    const { user } = req as AuthRequest;
     const variant_id = BigInt(req.params.variantId);
     const tenant_id = BigInt(tenantId);
     const { adjustment, reason } = req.body;
 
-    const inventory = await this.inventoryService.adjustInventory(variant_id, tenant_id, adjustment, reason);
+    const inventory = await this.inventoryService.adjustInventory(variant_id, tenant_id, adjustment, reason, user?.userId);
 
     res.json({
       success: true,
