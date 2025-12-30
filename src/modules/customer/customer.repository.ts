@@ -37,11 +37,11 @@ export class CustomerRepository extends BaseRepository<
   /**
    * Find customer by phone with tenant isolation
    */
-  async findByPhone(phone: string, tenantId: string): Promise<Customer | null> {
+  async findByPhone(phone: string, tenantId: string | bigint): Promise<Customer | null> {
     return prisma.customer.findFirst({
       where: {
         phone,
-        tenant_id: BigInt(tenantId),
+        tenant_id: typeof tenantId === 'string' ? BigInt(tenantId) : tenantId,
       },
     });
   }
@@ -49,11 +49,11 @@ export class CustomerRepository extends BaseRepository<
   /**
    * Find customer by email with tenant isolation
    */
-  async findByEmail(email: string, tenantId: string): Promise<Customer | null> {
+  async findByEmail(email: string, tenantId: string | bigint): Promise<Customer | null> {
     return prisma.customer.findFirst({
       where: {
         email,
-        tenant_id: BigInt(tenantId),
+        tenant_id: typeof tenantId === 'string' ? BigInt(tenantId) : tenantId,
       },
     });
   }

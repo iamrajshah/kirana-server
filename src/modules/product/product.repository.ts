@@ -210,6 +210,18 @@ export class VariantRepository {
   }
 
   /**
+   * Find variant by SKU within tenant (bigint tenant_id version)
+   */
+  async findVariantBySKU(sku: string, tenant_id: bigint): Promise<product_variants | null> {
+    return prisma.product_variants.findFirst({
+      where: {
+        tenant_id,
+        sku,
+      },
+    });
+  }
+
+  /**
    * Check if variant name (brand+size+packaging) exists for a product
    */
   async findByComposite(
