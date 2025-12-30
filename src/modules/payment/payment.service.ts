@@ -11,14 +11,9 @@ export class PaymentService {
   }
 
   /**
-   * Create payment with atomic transaction
-   * Steps:
-   * 1. Validate customer exists
-   * 2. Validate amount > 0
-   * 3. If invoice_id provided, validate invoice exists and belongs to customer
-   * 4. Create payment
-   * 5. Create ledger entry (PAYMENT type - negative amount)
-   * 6. Update customer.credit_balance
+   * Create payment with atomic transaction and idempotency support
+   * Idempotency is enforced using the unique constraint on (tenant_id, idempotency_key)
+   * If a duplicate idempotency key is provided, returns the existing payment instead of creating a new one
    */
   async createPayment(
     tenant_id: bigint,
@@ -27,8 +22,24 @@ export class PaymentService {
     payment_mode: 'CASH' | 'UPI' | 'CARD' | 'BANK' | 'ADJUSTMENT',
     created_by: bigint,
     invoice_id?: string,
-    reference_note?: string
+    reference_note?: string,
+    idempotency_key?: string
   ) {
+    // If idempotency key is provided, check for existing payment
+    if (idempotency_key) {
+      const existingPayment = await prisma.payment.findFirst({
+        where: {
+          tenant_id,
+          idempotency_key,
+        },
+      });
+
+      if (existingPayment) {
+        // Return existing payment with full details
+        return this.getPaymentById(existingPayment.id, tenant_id);
+      }
+    }
+
     // Validate customer exists
     const customer = await prisma.customer.findFirst({
       where: {
@@ -64,20 +75,20 @@ export class PaymentService {
       }
     }
 
-    // Use Prisma transaction for atomicity
-    const result = await prisma.$transaction(async (tx) => {
-      // Step 1: Create payment
-      const payment = await this.paymentRepository.createPayment(
-        {
+    // Use Prisma transaction for atomicity with increased timeout
+    const payment = await prisma.$transaction(async (tx) => {
+      // Step 1: Create payment with idempotency key
+      const payment = await tx.payment.create({
+        data: {
           tenant_id,
           customer_id,
           invoice_id: invoice_id_bigint,
           amount,
           payment_mode,
           reference_note,
+          idempotency_key, // Store idempotency key (can be null)
         },
-        tx
-      );
+      });
 
       // Step 2: Create ledger entry (negative amount for payment)
       await tx.customer_ledger.create({
@@ -94,17 +105,38 @@ export class PaymentService {
         },
       });
 
-      // Step 3: Update customer balance
-      await tx.customer.update({
+      // Step 3: Update customer balance with optimistic locking
+      const currentCustomer = await tx.customer.findUnique({
+        where: { id: customer_id },
+      });
+
+      if (!currentCustomer) {
+        throw new NotFoundError('Customer not found');
+      }
+
+      const customerVersion = currentCustomer.version;
+
+      const updatedCustomer = await tx.customer.updateMany({
         where: {
           id: customer_id,
+          version: customerVersion, // Only update if version hasn't changed
         },
         data: {
           credit_balance: {
             decrement: amount,
           },
+          version: {
+            increment: 1,
+          },
         },
       });
+
+      // If no rows updated, version conflict
+      if (updatedCustomer.count === 0) {
+        throw new Error(
+          'Customer balance update failed due to concurrent modification. Please retry the operation.'
+        );
+      }
 
       // Step 4: If payment is for an invoice and amount >= invoice amount, mark invoice as PAID
       if (invoice_id_bigint) {
@@ -121,6 +153,9 @@ export class PaymentService {
       }
 
       return payment;
+    }, {
+      maxWait: 10000, // Wait up to 10s to start transaction
+      timeout: 30000, // Transaction timeout 30s
     });
 
     // Audit log
@@ -128,18 +163,19 @@ export class PaymentService {
       tenant_id,
       created_by,
       'payment',
-      result.id,
+      payment.id,
       {
         customer_id: customer_id.toString(),
         amount,
         payment_mode,
         invoice_id: invoice_id || null,
-        reference_note: reference_note || null
+        reference_note: reference_note || null,
+        idempotency_key: idempotency_key || null,
       }
     );
 
     // Fetch the created payment with all details
-    return this.getPaymentById(result.id, tenant_id);
+    return this.getPaymentById(payment.id, tenant_id);
   }
 
   /**

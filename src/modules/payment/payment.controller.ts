@@ -15,7 +15,10 @@ export class PaymentController {
     const { user } = req as AuthRequest;
     const tenant_id = BigInt(tenantId);
     const created_by = BigInt(user!.userId);
-    const { customer_id, amount, payment_mode, invoice_id, reference_note } = req.body;
+    const { customer_id, amount, payment_mode, invoice_id, reference_note, idempotency_key } = req.body;
+    
+    // Idempotency key from header takes precedence over body
+    const idempotencyKey = req.headers['idempotency-key'] as string || idempotency_key;
 
     const payment = await this.paymentService.createPayment(
       tenant_id,
@@ -24,7 +27,8 @@ export class PaymentController {
       payment_mode,
       created_by,
       invoice_id,
-      reference_note
+      reference_note,
+      idempotencyKey
     );
 
     res.status(201).json({

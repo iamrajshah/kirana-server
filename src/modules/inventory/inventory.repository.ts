@@ -117,21 +117,58 @@ export class InventoryRepository {
   /**
    * Reduce inventory quantity (for invoice creation)
    * Must be called within a transaction
+   * Uses optimistic locking with version to prevent race conditions
    */
   async reduceQuantity(variant_id: bigint, tenant_id: bigint, quantity: number, tx?: any): Promise<Inventory> {
     const db = tx || prisma;
     
-    return db.inventory.update({
+    // Get current inventory with version for optimistic locking
+    const current = await db.inventory.findUnique({
       where: {
         variant_id,
         tenant_id,
+      },
+    });
+
+    if (!current) {
+      throw new Error(`Inventory not found for variant ${variant_id}`);
+    }
+
+    const currentVersion = current.version;
+
+    // Update with version check to prevent race conditions
+    const updated = await db.inventory.updateMany({
+      where: {
+        variant_id,
+        tenant_id,
+        version: currentVersion, // Only update if version hasn't changed
       },
       data: {
         quantity: {
           decrement: quantity,
         },
+        version: {
+          increment: 1, // Increment version for next update
+        },
       },
     });
+
+    // If no rows updated, version conflict (race condition detected)
+    if (updated.count === 0) {
+      throw new Error(
+        `Inventory update failed due to concurrent modification. Please retry the operation.`
+      );
+    }
+
+    // Fetch and return updated record
+    const result = await db.inventory.findUnique({
+      where: {
+        variant_id,
+        tenant_id,
+      },
+    });
+
+    return result!;
   }
 
   /**
