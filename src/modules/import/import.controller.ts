@@ -5,6 +5,7 @@ import { AuthRequest } from '@middlewares/auth.middleware';
 import { BadRequestError } from '@utils/errors';
 import { generateCSV, generateExcel } from '@utils/fileParser';
 import { prisma } from '@config/database';
+import { getFileStorage } from '@utils/storage';
 
 export class ImportController {
   private readonly service: ImportService;
@@ -31,11 +32,22 @@ export class ImportController {
     const ip = (req.ip || req.connection?.remoteAddress)?.toString();
     const userAgent = req.headers['user-agent'];
 
+    // Upload file to storage
+    const storage = getFileStorage();
+    const fileMetadata = await storage.upload({
+      buffer: file.buffer,
+      originalName: file.originalname,
+      tenantId: tenantId.toString(),
+      mimeType: file.mimetype,
+    });
+
     const result = await this.service.createImportJob(
       tenantId,
       userId,
       req.body.type as any,
-      file.path,
+      fileMetadata.key,
+      BigInt(fileMetadata.size),
+      fileMetadata.mimeType,
       req.body.autoCreateCategories,
       ip,
       userAgent

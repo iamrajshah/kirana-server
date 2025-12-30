@@ -171,11 +171,11 @@ model activity_logs {
 }
 
 model categories {
-  id        BigInt     @id @default(autoincrement())
+  id        BigInt    @id @default(autoincrement())
   tenant_id BigInt
-  name      String?    @db.VarChar(100)
-  is_active Boolean    @default(true)
-  tenants   Tenant     @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "categories_ibfk_1")
+  name      String?   @db.VarChar(100)
+  is_active Boolean   @default(true)
+  tenants   Tenant    @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "categories_ibfk_1")
   products  Product[]
 
   @@index([tenant_id, is_active], map: "idx_categories_active")
@@ -220,6 +220,9 @@ model import_jobs {
   status          import_jobs_status?
   file_url        String?             @db.VarChar(255)
   created_at      DateTime?           @default(now()) @db.DateTime(0)
+  file_key        String?             @db.VarChar(255)
+  file_size       BigInt?
+  file_mime       String?             @db.VarChar(100)
   import_job_rows import_job_rows[]
   tenants         Tenant              @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "import_jobs_ibfk_1")
 

@@ -16,6 +16,13 @@ const envSchema = z.object({
   RATE_LIMIT_MAX_REQUESTS: z.string().default('100'),
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
   CORS_ORIGIN: z.string().default('*'),
+  // Storage configuration
+  STORAGE_TYPE: z.enum(['local', 's3']).default('local'),
+  S3_ENDPOINT: z.string().optional(),
+  S3_REGION: z.string().optional(),
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
+  S3_BUCKET_NAME: z.string().optional(),
 });
 
 type EnvConfig = z.infer<typeof envSchema>;
@@ -58,5 +65,15 @@ export const config = {
   },
   cors: {
     origin: env.CORS_ORIGIN,
+  },
+  storageType: env.STORAGE_TYPE,
+  storage: {
+    s3: {
+      endpoint: env.S3_ENDPOINT,
+      region: env.S3_REGION || 'us-east-1',
+      accessKeyId: env.S3_ACCESS_KEY_ID,
+      secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+      bucketName: env.S3_BUCKET_NAME,
+    },
   },
 } as const;
