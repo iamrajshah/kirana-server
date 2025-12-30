@@ -5,8 +5,9 @@ import customerRoutes from '@modules/customer/customer.routes';
 import productRoutes from '@modules/product/product.routes';
 import variantRoutes from '@modules/product/variant.routes';
 import categoryRoutes from '@modules/category/category.routes';
-// TODO: Fix ledger module - currently commented out as Ledger/LedgerEntry models don't exist in schema
-// import ledgerRoutes from '@modules/ledger/ledger.routes';
+import inventoryRoutes from '@modules/inventory/inventory.routes';
+import invoiceRoutes from '@modules/invoice/invoice.routes';
+import paymentRoutes from '@modules/payment/payment.routes';
 
 const router = Router();
 
@@ -20,7 +21,9 @@ router.use('/customers', customerRoutes);
 router.use('/products', productRoutes);
 router.use('/variants', variantRoutes);
 router.use('/categories', categoryRoutes);
-// router.use('/ledgers', ledgerRoutes);
+router.use('/inventory', inventoryRoutes);
+router.use('/invoices', invoiceRoutes);
+router.use('/payments', paymentRoutes);
 
 // Health check
 router.get('/health', (_req, res) => {
