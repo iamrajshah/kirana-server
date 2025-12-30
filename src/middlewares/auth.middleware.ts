@@ -4,8 +4,9 @@ import { config } from '@config/env';
 import { UnauthorizedError } from '@utils/errors';
 
 /**
- * Role-Permission Mapping
- * Defines what permissions each role has
+ * Role-Permission Mapping (DEPRECATED - kept for reference only)
+ * Permissions are now loaded from database and stored in JWT token
+ * This mapping should match the data in permissions and role_permissions tables
  */
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   OWNER: ['USER_CREATE', 'USER_VIEW', 'USER_UPDATE', 'USER_DELETE', 'BILL_CREATE', 'BILL_VIEW', 'BILL_UPDATE', 'BILL_DELETE', 'CUSTOMER_CREATE', 'CUSTOMER_VIEW', 'CUSTOMER_UPDATE', 'CUSTOMER_DELETE', 'PRODUCT_CREATE', 'PRODUCT_VIEW', 'PRODUCT_UPDATE', 'PRODUCT_DELETE', 'REPORT_VIEW', 'SETTINGS_ALL'],
@@ -14,7 +15,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
 };
 
 /**
- * Get all permissions for given roles
+ * Get all permissions for given roles (DEPRECATED - kept for backward compatibility)
+ * Permissions are now included in JWT payload
  */
 export const getPermissionsForRoles = (roles: string[]): string[] => {
   const permissions = new Set<string>();
@@ -32,16 +34,16 @@ export interface JWTPayload {
   tenantId: string;
   email: string | null;
   roles: string[];
+  permissions: string[];
 }
 
 export interface AuthRequest extends Request {
-  user?: JWTPayload & {
-    permissions?: string[];
-  };
+  user?: JWTPayload;
 }
 
 /**
  * Middleware to verify JWT token and extract user information
+ * Permissions are loaded from database during login and stored in JWT
  */
 export const authenticate = (req: Request, _res: Response, next: NextFunction): void => {
   try {
@@ -56,13 +58,9 @@ export const authenticate = (req: Request, _res: Response, next: NextFunction): 
     try {
       const decoded = jwt.verify(token, config.jwt.secret) as JWTPayload;
 
-      // Attach user info to request with permissions derived from roles
-      const permissions = getPermissionsForRoles(decoded.roles);
-      
-      (req as AuthRequest).user = {
-        ...decoded,
-        permissions,
-      };
+      // Attach user info to request
+      // Permissions are already in the JWT payload from login/refresh
+      (req as AuthRequest).user = decoded;
 
       next();
     } catch (error) {

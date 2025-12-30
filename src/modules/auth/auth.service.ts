@@ -31,6 +31,7 @@ export interface JWTPayload {
   tenantId: string;
   email: string | null;
   roles: string[];
+  permissions: string[];
 }
 
 export class AuthService {
@@ -79,7 +80,7 @@ export class AuthService {
     );
 
     // Generate tokens
-    const tokens = this.generateTokens(user, tenant, [role]);
+    const tokens = await this.generateTokens(user, tenant, [role]);
 
     return this.formatAuthResponse(user, tenant, [role], tokens,true);
   }
@@ -130,7 +131,7 @@ export class AuthService {
     const roles = user.user_roles.map((ur) => ur.roles);
 
     // Generate tokens
-    const tokens = this.generateTokens(user, tenant, roles);
+    const tokens = await this.generateTokens(user, tenant, roles);
 
     return this.formatAuthResponse(user, tenant, roles, tokens);
   }
@@ -148,8 +149,17 @@ export class AuthService {
         throw new UnauthorizedError('Invalid refresh token');
       }
 
-      // Generate new access token
-      const accessToken = this.generateAccessToken(decoded);
+      // Reload permissions from database in case they changed
+      const roles = user.user_roles.map((ur) => ur.roles.name as string);
+      const permissions = await this.repository.getPermissionsForRoles(roles);
+
+      // Generate new access token with updated permissions
+      const payload: JWTPayload = {
+        ...decoded,
+        roles,
+        permissions,
+      };
+      const accessToken = this.generateAccessToken(payload);
 
       return { accessToken };
     } catch (error) {
@@ -166,16 +176,22 @@ export class AuthService {
   /**
    * Generate access and refresh tokens
    */
-  private generateTokens(
+  private async generateTokens(
     user: User,
     tenant: Tenant,
     roles: roles[]
-  ): { accessToken: string; refreshToken: string } {
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    const roleNames = roles.map((r) => r.name as string);
+    
+    // Load permissions from database for the user's roles
+    const permissions = await this.repository.getPermissionsForRoles(roleNames);
+
     const payload: JWTPayload = {
       userId: user.id.toString(),
       tenantId: tenant.id.toString(),
       email: user.email,
-      roles: roles.map((r) => r.name as string),
+      roles: roleNames,
+      permissions,
     };
 
     const accessToken = jwt.sign(payload, config.jwt.secret, {
