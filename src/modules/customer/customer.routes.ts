@@ -7,6 +7,8 @@ import {
   createCustomerSchema,
   updateCustomerSchema,
   getCustomerByIdSchema,
+  addOpeningBalanceSchema,
+  getCustomerLedgerSchema,
 } from './customer.validation';
 
 const router = Router();
@@ -24,13 +26,6 @@ router.use(extractTenant);
 router.get('/', hasPermission('CUSTOMER_VIEW'), controller.getAll);
 
 /**
- * @route   GET /customers/search
- * @desc    Search customers
- * @access  CUSTOMER_VIEW permission
- */
-router.get('/search', hasPermission('CUSTOMER_VIEW'), controller.search);
-
-/**
  * @route   GET /customers/:id
  * @desc    Get customer by ID
  * @access  CUSTOMER_VIEW permission
@@ -45,17 +40,39 @@ router.get('/:id', hasPermission('CUSTOMER_VIEW'), validate(getCustomerByIdSchem
 router.post('/', hasPermission('CUSTOMER_CREATE'), validate(createCustomerSchema), controller.create);
 
 /**
- * @route   PUT /customers/:id
+ * @route   PATCH /customers/:id
  * @desc    Update customer
  * @access  CUSTOMER_UPDATE permission
  */
-router.put('/:id', hasPermission('CUSTOMER_UPDATE'), validate(updateCustomerSchema), controller.update);
+router.patch(
+  '/:id',
+  hasPermission('CUSTOMER_UPDATE'),
+  validate(updateCustomerSchema),
+  controller.update
+);
 
 /**
- * @route   DELETE /customers/:id
- * @desc    Delete customer
- * @access  CUSTOMER_DELETE permission
+ * @route   POST /customers/:id/opening-balance
+ * @desc    Add opening balance to customer
+ * @access  CUSTOMER_UPDATE permission
  */
-router.delete('/:id', hasPermission('CUSTOMER_DELETE'), validate(getCustomerByIdSchema), controller.delete);
+router.post(
+  '/:id/opening-balance',
+  hasPermission('CUSTOMER_UPDATE'),
+  validate(addOpeningBalanceSchema),
+  controller.addOpeningBalance
+);
+
+/**
+ * @route   GET /customers/:id/ledger
+ * @desc    Get customer ledger
+ * @access  CUSTOMER_VIEW permission
+ */
+router.get(
+  '/:id/ledger',
+  hasPermission('CUSTOMER_VIEW'),
+  validate(getCustomerLedgerSchema),
+  controller.getCustomerLedger
+);
 
 export default router;

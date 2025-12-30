@@ -15,11 +15,34 @@ export class CustomerRepository extends BaseRepository<
   }
 
   /**
+   * Create customer
+   */
+  async createCustomer(data: {
+    tenant_id: bigint;
+    name: string;
+    phone: string;
+    email?: string | null;
+  }): Promise<Customer> {
+    return prisma.customer.create({
+      data: {
+        tenant_id: data.tenant_id,
+        name: data.name,
+        phone: data.phone,
+        email: data.email,
+        credit_balance: 0,
+      },
+    });
+  }
+
+  /**
    * Find customer by phone with tenant isolation
    */
   async findByPhone(phone: string, tenantId: string): Promise<Customer | null> {
     return prisma.customer.findFirst({
-      where: this.withTenant(tenantId, { phone }),
+      where: {
+        phone,
+        tenant_id: BigInt(tenantId),
+      },
     });
   }
 
@@ -28,42 +51,39 @@ export class CustomerRepository extends BaseRepository<
    */
   async findByEmail(email: string, tenantId: string): Promise<Customer | null> {
     return prisma.customer.findFirst({
-      where: this.withTenant(tenantId, { email }),
-    });
-  }
-
-  /**
-   * Search customers by name or phone
-   */
-  async search(
-    query: string,
-    tenantId: string,
-    options?: { skip?: number; take?: number }
-  ): Promise<Customer[]> {
-    return prisma.customer.findMany({
       where: {
+        email,
         tenant_id: BigInt(tenantId),
-        OR: [
-          { name: { contains: query } },
-          { phone: { contains: query } },
-          { email: { contains: query } },
-        ],
       },
-      skip: options?.skip,
-      take: options?.take,
     });
   }
 
   /**
-   * Get customers with pagination
+   * Find customer by ID with tenant check
    */
-  async findAllPaginated(
-    tenantId: string,
-    options: { skip: number; take: number; searchQuery?: string }
+  async findByIdAndTenant(customerId: bigint, tenantId: bigint): Promise<Customer | null> {
+    return prisma.customer.findFirst({
+      where: {
+        id: customerId,
+        tenant_id: tenantId,
+      },
+    });
+  }
+
+  /**
+   * Get all customers for tenant with pagination
+   */
+  async findAllByTenant(
+    tenantId: bigint,
+    options?: {
+      skip?: number;
+      take?: number;
+      searchQuery?: string;
+    }
   ): Promise<{ customers: Customer[]; total: number }> {
     const where: Prisma.CustomerWhereInput = {
-      tenant_id: BigInt(tenantId),
-      ...(options.searchQuery && {
+      tenant_id: tenantId,
+      ...(options?.searchQuery && {
         OR: [
           { name: { contains: options.searchQuery } },
           { phone: { contains: options.searchQuery } },
@@ -75,13 +95,53 @@ export class CustomerRepository extends BaseRepository<
     const [customers, total] = await Promise.all([
       prisma.customer.findMany({
         where,
-        skip: options.skip,
-        take: options.take,
+        skip: options?.skip,
+        take: options?.take,
         orderBy: { created_at: 'desc' },
       }),
       prisma.customer.count({ where }),
     ]);
 
     return { customers, total };
+  }
+
+  /**
+   * Update customer
+   */
+  async updateCustomer(
+    customerId: bigint,
+    tenantId: bigint,
+    data: {
+      name?: string;
+      phone?: string;
+      email?: string | null;
+    }
+  ): Promise<Customer> {
+    return prisma.customer.update({
+      where: {
+        id: customerId,
+        tenant_id: tenantId,
+      },
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.phone !== undefined && { phone: data.phone }),
+        ...(data.email !== undefined && { email: data.email }),
+      },
+    });
+  }
+
+  /**
+   * Update customer balance (only used to sync calculated balance)
+   */
+  async updateBalance(customerId: bigint, tenantId: bigint, balance: number): Promise<Customer> {
+    return prisma.customer.update({
+      where: {
+        id: customerId,
+        tenant_id: tenantId,
+      },
+      data: {
+        credit_balance: balance,
+      },
+    });
   }
 }
