@@ -4,7 +4,10 @@ import { import_jobs, import_job_rows, Prisma } from '@prisma/client';
 export interface CreateImportJobData {
   tenant_id: bigint;
   type: 'CUSTOMER' | 'PRODUCT' | 'INVENTORY' | 'CATEGORY';
-  file_url?: string;
+  file_key: string;
+  file_size?: bigint;
+  file_mime?: string;
+  file_url?: string; // Deprecated, keep for backward compatibility
 }
 
 export interface CreateImportJobRowData {
@@ -35,6 +38,9 @@ export class ImportRepository {
         tenant_id: data.tenant_id,
         type: data.type as any,
         status: 'PENDING',
+        file_key: data.file_key,
+        file_size: data.file_size,
+        file_mime: data.file_mime,
         file_url: data.file_url,
       },
     });

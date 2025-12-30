@@ -12,29 +12,13 @@ import {
 } from './import.validation';
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
 
 const router = Router();
 const controller = new ImportController();
 
-// Configure multer for file uploads
-const uploadDir = path.join(process.cwd(), 'uploads', 'imports');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, `import-${uniqueSuffix}${path.extname(file.originalname)}`);
-  },
-});
-
+// Configure multer for file uploads - use memory storage
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   fileFilter: (_req, file, cb) => {
     const allowedExtensions = ['.csv', '.xlsx', '.xls'];
     const ext = path.extname(file.originalname).toLowerCase();

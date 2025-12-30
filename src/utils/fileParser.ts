@@ -1,6 +1,6 @@
 import { parse } from 'csv-parse/sync';
 import * as XLSX from 'xlsx';
-import fs from 'fs';
+import { Readable } from 'stream';
 
 export interface ParsedRow {
   rowNumber: number;
@@ -14,10 +14,21 @@ export interface ParseResult {
 }
 
 /**
- * Parse CSV file
+ * Parse CSV from buffer or stream
  */
-export async function parseCSV(filePath: string): Promise<ParseResult> {
-  const fileContent = fs.readFileSync(filePath, 'utf-8');
+export async function parseCSV(input: Buffer | Readable): Promise<ParseResult> {
+  let fileContent: string;
+
+  if (Buffer.isBuffer(input)) {
+    fileContent = input.toString('utf-8');
+  } else {
+    // Read stream to buffer
+    const chunks: Buffer[] = [];
+    for await (const chunk of input) {
+      chunks.push(Buffer.from(chunk));
+    }
+    fileContent = Buffer.concat(chunks).toString('utf-8');
+  }
 
   const records = parse(fileContent, {
     columns: true,
@@ -40,10 +51,23 @@ export async function parseCSV(filePath: string): Promise<ParseResult> {
 }
 
 /**
- * Parse Excel file
+ * Parse Excel from buffer or stream
  */
-export async function parseExcel(filePath: string): Promise<ParseResult> {
-  const workbook = XLSX.readFile(filePath);
+export async function parseExcel(input: Buffer | Readable): Promise<ParseResult> {
+  let buffer: Buffer;
+
+  if (Buffer.isBuffer(input)) {
+    buffer = input;
+  } else {
+    // Read stream to buffer
+    const chunks: Buffer[] = [];
+    for await (const chunk of input) {
+      chunks.push(Buffer.from(chunk));
+    }
+    buffer = Buffer.concat(chunks);
+  }
+
+  const workbook = XLSX.read(buffer, { type: 'buffer' });
   const sheetName = workbook.SheetNames[0];
   const worksheet = workbook.Sheets[sheetName];
 
@@ -74,18 +98,32 @@ export async function parseExcel(filePath: string): Promise<ParseResult> {
 }
 
 /**
- * Parse file based on extension
+ * Parse file based on extension and mime type
  */
-export async function parseFile(filePath: string): Promise<ParseResult> {
-  const extension = filePath.toLowerCase().split('.').pop();
+export async function parseFile(
+  input: Buffer | Readable,
+  fileExtOrMime?: string
+): Promise<ParseResult> {
+  // Determine file type from extension or mime type
+  const fileType = fileExtOrMime?.toLowerCase();
+  const isCsv =
+    fileType?.includes('csv') ||
+    fileType?.endsWith('.csv') ||
+    fileType === 'text/csv';
+  const isExcel =
+    fileType?.includes('xlsx') ||
+    fileType?.includes('xls') ||
+    fileType?.includes('spreadsheet') ||
+    fileType?.endsWith('.xlsx') ||
+    fileType?.endsWith('.xls');
 
-  if (extension === 'csv') {
-    return parseCSV(filePath);
-  } else if (extension === 'xlsx' || extension === 'xls') {
-    return parseExcel(filePath);
+  if (isCsv) {
+    return parseCSV(input);
+  } else if (isExcel) {
+    return parseExcel(input);
   } else {
     throw new Error(
-      `Unsupported file format: ${extension}. Only CSV and Excel files are supported.`
+      `Unsupported file format: ${fileType}. Only CSV and Excel files are supported.`
     );
   }
 }

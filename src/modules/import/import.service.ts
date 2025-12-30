@@ -8,7 +8,8 @@ import { CategoryRepository } from '@modules/category/category.repository';
 import { CustomerRepository } from '@modules/customer/customer.repository';
 import { VariantRepository } from '@modules/product/product.repository';
 import { logger } from '@utils/logger';
-import fs from 'fs';
+import { getFileStorage } from '@utils/storage';
+import { config } from '@config/env';
 
 export interface ImportJobResponse {
   id: string;
@@ -58,7 +59,9 @@ export class ImportService {
     tenantId: bigint,
     userId: bigint,
     type: 'CUSTOMER' | 'PRODUCT' | 'INVENTORY' | 'CATEGORY',
-    filePath: string,
+    fileKey: string,
+    fileSize: bigint,
+    fileMime: string,
     autoCreateCategories: boolean,
     ip?: string,
     userAgent?: string
@@ -67,7 +70,9 @@ export class ImportService {
     const job = await this.repository.createJob({
       tenant_id: tenantId,
       type,
-      file_url: filePath,
+      file_key: fileKey,
+      file_size: fileSize,
+      file_mime: fileMime,
     });
 
     // Audit log
@@ -76,14 +81,14 @@ export class ImportService {
       userId,
       'import_job',
       job.id,
-      { type, file_url: filePath },
+      { type, file_key: fileKey },
       ip,
       userAgent
     );
 
     // Parse and validate in background
     process.nextTick(() => {
-      this.parseAndValidateJob(job.id, tenantId, filePath, type, autoCreateCategories).catch(
+      this.parseAndValidateJob(job.id, tenantId, fileKey, type, autoCreateCategories).catch(
         (error) => {
           logger.error(`Error processing import job ${job.id}:`, error);
           this.repository
@@ -104,19 +109,31 @@ export class ImportService {
   private async parseAndValidateJob(
     jobId: bigint,
     tenantId: bigint,
-    filePath: string,
+    fileKey: string,
     type: string,
     autoCreateCategories: boolean
   ): Promise<void> {
+    const storage = getFileStorage();
+    
     try {
       // Update status to PROCESSING
       await this.repository.updateJob(jobId, { status: 'PROCESSING' });
 
-      // Parse file
-      const parseResult = await parseFile(filePath);
+      // Get job to retrieve file_mime
+      const job = await this.repository.findJobById(jobId, tenantId);
+      if (!job) {
+        throw new Error('Job not found');
+      }
+
+      // Get file stream from storage
+      const fileStream = await storage.getStream(fileKey);
+
+      // Parse file from stream using stored mime type or fallback to file extension
+      const parseResult = await parseFile(fileStream, job.file_mime || fileKey);
 
       if (parseResult.rows.length === 0) {
         await this.repository.updateJob(jobId, { status: 'FAILED' });
+        await storage.delete(fileKey); // Clean up file
         return;
       }
 
@@ -136,13 +153,25 @@ export class ImportService {
       // Update job status to COMPLETED
       await this.repository.updateJob(jobId, { status: 'COMPLETED' });
 
-      // Clean up uploaded file
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+      // Clean up file in development mode after successful completion
+      if (config.storageType === 'local') {
+        try {
+          await storage.delete(fileKey);
+          logger.info(`Deleted file ${fileKey} after successful import`);
+        } catch (cleanupError) {
+          logger.error('Failed to cleanup file after completion:', cleanupError);
+        }
       }
     } catch (error) {
       logger.error('Parse and validate error:', error);
       await this.repository.updateJob(jobId, { status: 'FAILED' });
+      // Clean up file on error
+      // Clean up file on error
+      try {
+        await storage.delete(fileKey);
+      } catch (cleanupError) {
+        logger.error('Failed to cleanup file:', cleanupError);
+      }
     }
   }
 
@@ -746,7 +775,7 @@ export class ImportService {
       id: job.id.toString(),
       type: job.type || 'UNKNOWN',
       status: job.status || 'PENDING',
-      file_url: job.file_url,
+      file_url: job.file_key || job.file_url, // Use file_key, fallback to file_url for backward compatibility
       created_at: job.created_at,
       row_counts: counts,
     };
