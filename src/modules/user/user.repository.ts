@@ -52,7 +52,10 @@ export class UserRepository {
   /**
    * Find all users for a tenant with their roles
    */
-  async findAllByTenant(tenantId: bigint): Promise<
+  async findAllByTenant(
+    tenantId: bigint,
+    includeInactive: boolean = false
+  ): Promise<
     Array<
       User & {
         user_roles: Array<{
@@ -61,10 +64,17 @@ export class UserRepository {
       }
     >
   > {
+    const where: any = {
+      tenant_id: tenantId,
+    };
+
+    // By default, only return active users
+    if (!includeInactive) {
+      where.is_active = true;
+    }
+
     return prisma.user.findMany({
-      where: {
-        tenant_id: tenantId,
-      },
+      where,
       include: {
         user_roles: {
           include: {

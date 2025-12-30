@@ -81,9 +81,9 @@ export class UserService {
   /**
    * Get all users for a tenant
    */
-  async getAllUsers(tenantId: string): Promise<UserResponse[]> {
+  async getAllUsers(tenantId: string, includeInactive: boolean = false): Promise<UserResponse[]> {
     const tenantIdBigInt = BigInt(tenantId);
-    const users = await this.repository.findAllByTenant(tenantIdBigInt);
+    const users = await this.repository.findAllByTenant(tenantIdBigInt, includeInactive);
 
     return users.map((user) => {
       const roles = user.user_roles.map((ur) => ur.roles.name as string);

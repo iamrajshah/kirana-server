@@ -41,8 +41,9 @@ export class UserController {
    */
   getAll = asyncHandler(async (req: Request, res: Response): Promise<Response> => {
     const { tenantId } = req as TenantRequest;
+    const includeInactive = req.query.includeInactive === 'true';
 
-    const users = await this.userService.getAllUsers(tenantId);
+    const users = await this.userService.getAllUsers(tenantId, includeInactive);
 
     return res.json({
       success: true,
