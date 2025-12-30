@@ -154,4 +154,38 @@ export class AuthRepository {
     });
     return count > 0;
   }
+
+  /**
+   * Get permissions for given roles
+   * @param roleNames - Array of role names (e.g., ['OWNER', 'MANAGER'])
+   * @returns Array of permission codes
+   */
+  async getPermissionsForRoles(roleNames: string[]): Promise<string[]> {
+    if (!roleNames || roleNames.length === 0) {
+      return [];
+    }
+
+    const rolePermissions = await prisma.role_permissions.findMany({
+      where: {
+        role: {
+          in: roleNames as any[], // Cast to any to handle enum type
+        },
+      },
+      include: {
+        permissions: {
+          select: {
+            code: true,
+          },
+        },
+      },
+    });
+
+    // Extract unique permission codes
+    const permissionCodes = new Set<string>();
+    rolePermissions.forEach((rp) => {
+      permissionCodes.add(rp.permissions.code);
+    });
+
+    return Array.from(permissionCodes);
+  }
 }
