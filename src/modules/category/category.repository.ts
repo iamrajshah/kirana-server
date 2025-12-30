@@ -29,10 +29,10 @@ export class CategoryRepository {
   /**
    * Find category by name (case-sensitive) within tenant
    */
-  async findByName(name: string, tenant_id: string): Promise<categories | null> {
+  async findByName(name: string, tenant_id: string | bigint): Promise<categories | null> {
     return prisma.categories.findFirst({
       where: {
-        tenant_id: BigInt(tenant_id),
+        tenant_id: typeof tenant_id === 'string' ? BigInt(tenant_id) : tenant_id,
         name: name,
       },
     });

@@ -3,6 +3,22 @@ import { config } from '@config/env';
 import { connectDatabase, disconnectDatabase } from '@config/database';
 import { logger } from '@utils/logger';
 
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit in production, just log it
+  if (config.env === 'development') {
+    process.exit(1);
+  }
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error: Error) => {
+  logger.error('Uncaught Exception:', error);
+  // Exit on uncaught exceptions as the process state may be inconsistent
+  process.exit(1);
+});
+
 const app = createApp();
 
 async function startServer(): Promise<void> {

@@ -21,7 +21,9 @@ INSERT INTO permissions (code, description) VALUES
 ('PRODUCT_UPDATE', 'Update product information'),
 ('PRODUCT_DELETE', 'Delete products'),
 ('REPORT_VIEW', 'View reports and analytics'),
-('SETTINGS_ALL', 'Full access to system settings')
+('SETTINGS_ALL', 'Full access to system settings'),
+('IMPORT_DATA', 'Import data from CSV/Excel files'),
+('EXPORT_DATA', 'Export data to CSV/Excel files')
 ON DUPLICATE KEY UPDATE description = VALUES(description);
 
 -- Insert role-permission mappings for OWNER
@@ -33,7 +35,7 @@ WHERE code IN (
   'BILL_CREATE', 'BILL_VIEW', 'BILL_UPDATE', 'BILL_DELETE',
   'CUSTOMER_CREATE', 'CUSTOMER_VIEW', 'CUSTOMER_UPDATE', 'CUSTOMER_DELETE',
   'PRODUCT_CREATE', 'PRODUCT_VIEW', 'PRODUCT_UPDATE', 'PRODUCT_DELETE',
-  'REPORT_VIEW', 'SETTINGS_ALL'
+  'REPORT_VIEW', 'SETTINGS_ALL', 'IMPORT_DATA', 'EXPORT_DATA'
 )
 ON DUPLICATE KEY UPDATE role = role;
 
@@ -45,7 +47,7 @@ WHERE code IN (
   'BILL_CREATE', 'BILL_VIEW', 'BILL_UPDATE',
   'CUSTOMER_CREATE', 'CUSTOMER_VIEW', 'CUSTOMER_UPDATE',
   'PRODUCT_CREATE', 'PRODUCT_VIEW', 'PRODUCT_UPDATE', 'PRODUCT_DELETE',
-  'REPORT_VIEW'
+  'REPORT_VIEW', 'IMPORT_DATA', 'EXPORT_DATA'
 )
 ON DUPLICATE KEY UPDATE role = role;
 

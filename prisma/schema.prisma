@@ -63,6 +63,7 @@ model Customer {
   invoices        Invoice[]
   payments        Payment[]
 
+  @@unique([tenant_id, phone], map: "idx_customer_phone_tenant")
   @@index([tenant_id], map: "idx_customer_tenant")
   @@map("customers")
 }
@@ -110,8 +111,8 @@ model Invoice {
   payments       Payment[]
 
   @@index([customer_id], map: "customer_id")
-  @@index([tenant_id], map: "idx_invoice_tenant")
   @@index([created_at], map: "idx_invoice_date")
+  @@index([tenant_id], map: "idx_invoice_tenant")
   @@map("invoices")
 }
 
@@ -143,18 +144,38 @@ model Payment {
   invoices       Invoice?               @relation(fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payments_ibfk_3")
 
   @@index([customer_id], map: "customer_id")
+  @@index([created_at], map: "idx_payment_date")
   @@index([invoice_id], map: "invoice_id")
   @@index([tenant_id], map: "tenant_id")
-  @@index([created_at], map: "idx_payment_date")
   @@map("payments")
 }
 
+model activity_logs {
+  id          BigInt    @id @default(autoincrement())
+  tenant_id   BigInt
+  user_id     BigInt
+  action      String    @db.VarChar(50)
+  entity_type String    @db.VarChar(50)
+  entity_id   BigInt
+  old_value   Json?
+  new_value   Json?
+  ip_address  String?   @db.VarChar(45)
+  user_agent  String?   @db.VarChar(255)
+  created_at  DateTime? @default(now()) @db.DateTime(0)
+  tenants     Tenant    @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "activity_logs_ibfk_1")
+  users       User      @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "activity_logs_ibfk_2")
+
+  @@index([entity_type, entity_id], map: "idx_entity")
+  @@index([tenant_id, created_at], map: "idx_tenant_date")
+  @@index([user_id], map: "user_id")
+}
+
 model categories {
-  id        BigInt    @id @default(autoincrement())
+  id        BigInt     @id @default(autoincrement())
   tenant_id BigInt
-  name      String?   @db.VarChar(100)
-  is_active Boolean   @default(true)
-  tenants   Tenant    @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "categories_ibfk_1")
+  name      String?    @db.VarChar(100)
+  is_active Boolean    @default(true)
+  tenants   Tenant     @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "categories_ibfk_1")
   products  Product[]
 
   @@index([tenant_id, is_active], map: "idx_categories_active")
@@ -178,16 +199,38 @@ model customer_ledger {
   @@index([created_at], map: "idx_ledger_date")
 }
 
+model import_job_rows {
+  id            BigInt                  @id @default(autoincrement())
+  import_job_id BigInt
+  row_no        Int
+  raw_data      Json
+  status        import_job_rows_status? @default(PENDING)
+  error_message String?                 @db.Text
+  created_at    DateTime?               @default(now()) @db.DateTime(0)
+  import_jobs   import_jobs             @relation(fields: [import_job_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "import_job_rows_ibfk_1")
+
+  @@index([import_job_id, status], map: "idx_import_job_status")
+  @@index([import_job_id, status], map: "idx_job_status")
+}
+
 model import_jobs {
-  id         BigInt              @id @default(autoincrement())
-  tenant_id  BigInt
-  type       import_jobs_type?
-  status     import_jobs_status?
-  file_url   String?             @db.VarChar(255)
-  created_at DateTime?           @default(now()) @db.DateTime(0)
-  tenants    Tenant              @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "import_jobs_ibfk_1")
+  id              BigInt              @id @default(autoincrement())
+  tenant_id       BigInt
+  type            import_jobs_type?
+  status          import_jobs_status?
+  file_url        String?             @db.VarChar(255)
+  created_at      DateTime?           @default(now()) @db.DateTime(0)
+  import_job_rows import_job_rows[]
+  tenants         Tenant              @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "import_jobs_ibfk_1")
 
   @@index([tenant_id], map: "tenant_id")
+}
+
+model permissions {
+  id               BigInt             @id @default(autoincrement())
+  code             String             @unique(map: "code") @db.VarChar(100)
+  description      String?            @db.VarChar(255)
+  role_permissions role_permissions[]
 }
 
 model product_variants {
@@ -206,14 +249,33 @@ model product_variants {
   tenants       Tenant                      @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "product_variants_ibfk_1")
   products      Product                     @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "product_variants_ibfk_2")
 
+  @@unique([tenant_id, sku], map: "idx_variant_sku_tenant")
   @@index([tenant_id], map: "idx_variant_tenant")
   @@index([product_id], map: "product_id")
+}
+
+model role_permissions {
+  role          role_permissions_role
+  permission_id BigInt
+  permissions   permissions           @relation(fields: [permission_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "role_permissions_ibfk_1")
+
+  @@id([role, permission_id])
+  @@index([permission_id], map: "permission_id")
 }
 
 model roles {
   id         BigInt       @id @default(autoincrement())
   name       roles_name?  @unique(map: "name")
   user_roles user_roles[]
+}
+
+model system_jobs {
+  id            BigInt              @id @default(autoincrement())
+  tenant_id     BigInt?
+  type          String?             @db.VarChar(50)
+  status        system_jobs_status?
+  error_message String?             @db.Text
+  created_at    DateTime?           @default(now()) @db.DateTime(0)
 }
 
 model user_roles {
@@ -226,49 +288,10 @@ model user_roles {
   @@index([role_id], map: "role_id")
 }
 
-model activity_logs {
-  id          BigInt    @id @default(autoincrement())
-  tenant_id   BigInt
-  user_id     BigInt
-  action      String    @db.VarChar(50)
-  entity_type String    @db.VarChar(50)
-  entity_id   BigInt
-  old_value   Json?
-  new_value   Json?
-  ip_address  String?   @db.VarChar(45)
-  user_agent  String?   @db.VarChar(255)
-  created_at  DateTime? @default(now()) @db.DateTime(0)
-  tenants     Tenant    @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "activity_logs_ibfk_1")
-  users       User      @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "activity_logs_ibfk_2")
-
-  @@index([entity_type, entity_id], map: "idx_entity")
-  @@index([tenant_id, created_at], map: "idx_tenant_date")
-  @@index([user_id], map: "user_id")
-}
-
-model system_jobs {
-  id            BigInt              @id @default(autoincrement())
-  tenant_id     BigInt?
-  type          String?             @db.VarChar(50)
-  status        system_jobs_status?
-  error_message String?             @db.Text
-  created_at    DateTime?           @default(now()) @db.DateTime(0)
-}
-
-model permissions {
-  id               BigInt             @id @default(autoincrement())
-  code             String             @unique(map: "code") @db.VarChar(100)
-  description      String?            @db.VarChar(255)
-  role_permissions role_permissions[]
-}
-
-model role_permissions {
-  role          role_permissions_role
-  permission_id BigInt
-  permissions   permissions           @relation(fields: [permission_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "role_permissions_ibfk_1")
-
-  @@id([role, permission_id])
-  @@index([permission_id], map: "permission_id")
+enum role_permissions_role {
+  OWNER
+  MANAGER
+  CASHIER
 }
 
 enum roles_name {
@@ -281,6 +304,7 @@ enum import_jobs_type {
   CUSTOMER
   PRODUCT
   INVENTORY
+  CATEGORY
 }
 
 enum customer_ledger_entry_type {
@@ -293,15 +317,23 @@ enum customer_ledger_entry_type {
 enum import_jobs_status {
   PENDING
   PROCESSING
-  COMPLETED
+  VALIDATED
   FAILED
+  COMPLETED
 }
 
-enum product_variants_packaging {
-  POUCH
-  BOTTLE
-  CAN
-  BOX
+enum system_jobs_status {
+  PENDING
+  RUNNING
+  FAILED
+  COMPLETED
+}
+
+enum import_job_rows_status {
+  PENDING
+  VALID
+  INVALID
+  IMPORTED
 }
 
 enum payments_payment_mode {
@@ -312,6 +344,13 @@ enum payments_payment_mode {
   ADJUSTMENT
 }
 
+enum product_variants_packaging {
+  POUCH
+  BOTTLE
+  CAN
+  BOX
+}
+
 enum invoices_status {
   PAID
   UNPAID
@@ -320,17 +359,4 @@ enum invoices_status {
 enum tenants_status {
   ACTIVE
   SUSPENDED
-}
-
-enum system_jobs_status {
-  PENDING
-  RUNNING
-  FAILED
-  COMPLETED
-}
-
-enum role_permissions_role {
-  OWNER
-  MANAGER
-  CASHIER
 }
