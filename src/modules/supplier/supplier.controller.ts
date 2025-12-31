@@ -58,7 +58,11 @@ export class SupplierController {
     res.status(200).json({
       success: true,
       data: result.suppliers,
-      pagination: result.pagination,
+      meta: {
+        total: result.pagination.total,
+        page: result.pagination.page,
+        limit: result.pagination.limit,
+      },
     });
   });
 

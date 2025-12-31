@@ -15,6 +15,7 @@ export interface ProductResponse {
   id: string;
   name: string | null;
   category_id: string | null;
+  category?: { id: string; name: string } | null;
   is_active: boolean;
   variants: VariantResponse[];
 }
@@ -96,17 +97,16 @@ export class ProductService {
    */
   async getAllProducts(
     tenantId: string,
-    page: number = 1,
-    limit: number = 50,
+    skip: number = 0,
+    take: number = 50,
     searchQuery?: string,
     includeInactive: boolean = false
-  ): Promise<{ products: ProductResponse[]; total: number; page: number; limit: number }> {
+  ): Promise<{ products: ProductResponse[]; total: number; skip: number; take: number }> {
     const tenantIdBigInt = BigInt(tenantId);
-    const skip = (page - 1) * limit;
 
     const { products, total } = await this.productRepository.findAllByTenant(tenantIdBigInt, {
       skip,
-      take: limit,
+      take,
       searchQuery,
       includeInactive,
     });
@@ -114,8 +114,8 @@ export class ProductService {
     return {
       products: products.map((p) => this.formatProductResponse(p)),
       total,
-      page,
-      limit,
+      skip,
+      take,
     };
   }
 
@@ -130,6 +130,8 @@ export class ProductService {
     if (!product) {
       throw new NotFoundError('Product not found');
     }
+
+    console.log('Product from DB:', JSON.stringify(product, (_, v) => typeof v === 'bigint' ? v.toString() : v, 2));
 
     return this.formatProductResponse(product);
   }
@@ -463,15 +465,31 @@ export class ProductService {
    * Format product response
    */
   private formatProductResponse(
-    product: Product & { product_variants?: product_variants[] }
+    product: Product & { 
+      product_variants?: product_variants[];
+      categories?: { id: bigint; name: string; is_active: boolean; tenant_id: bigint } | null;
+    }
   ): ProductResponse {
-    return {
+    console.log('=== FORMATTING PRODUCT ===');
+    console.log('Product categories field:', product.categories);
+    console.log('Has categories?', !!product.categories);
+    
+    const result = {
       id: product.id.toString(),
       name: product.name,
       category_id: product.category_id?.toString() || null,
+      category: product.categories ? {
+        id: product.categories.id.toString(),
+        name: product.categories.name
+      } : null,
       is_active: product.is_active,
       variants: (product.product_variants || []).map((v) => this.formatVariantResponse(v)),
     };
+    
+    console.log('Result category:', result.category);
+    console.log('======================');
+    
+    return result;
   }
 
   /**
