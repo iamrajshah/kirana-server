@@ -63,7 +63,7 @@ export const makePaymentSchema = z.object({
       required_error: 'Amount is required',
       invalid_type_error: 'Amount must be a number',
     }).positive('Amount must be positive'),
-    payment_mode: z.enum(['CASH', 'UPI', 'CARD', 'BANK_TRANSFER'], {
+    payment_mode: z.enum(['CASH', 'UPI', 'CARD', 'BANK'], {
       required_error: 'Payment mode is required',
     }),
     notes: z.string().max(255).optional(),
