@@ -23,7 +23,13 @@ INSERT INTO permissions (code, description) VALUES
 ('REPORT_VIEW', 'View reports and analytics'),
 ('SETTINGS_ALL', 'Full access to system settings'),
 ('IMPORT_DATA', 'Import data from CSV/Excel files'),
-('EXPORT_DATA', 'Export data to CSV/Excel files')
+('EXPORT_DATA', 'Export data to CSV/Excel files'),
+('SUPPLIER_CREATE', 'Create new suppliers'),
+('SUPPLIER_VIEW', 'View supplier details'),
+('SUPPLIER_UPDATE', 'Update supplier information'),
+('SUPPLIER_MANAGE', 'Manage supplier balances and payments'),
+('PURCHASE_CREATE', 'Create purchase invoices'),
+('PURCHASE_VIEW', 'View purchase details')
 ON DUPLICATE KEY UPDATE description = VALUES(description);
 
 -- Insert role-permission mappings for OWNER
@@ -35,7 +41,9 @@ WHERE code IN (
   'BILL_CREATE', 'BILL_VIEW', 'BILL_UPDATE', 'BILL_DELETE',
   'CUSTOMER_CREATE', 'CUSTOMER_VIEW', 'CUSTOMER_UPDATE', 'CUSTOMER_DELETE',
   'PRODUCT_CREATE', 'PRODUCT_VIEW', 'PRODUCT_UPDATE', 'PRODUCT_DELETE',
-  'REPORT_VIEW', 'SETTINGS_ALL', 'IMPORT_DATA', 'EXPORT_DATA'
+  'REPORT_VIEW', 'SETTINGS_ALL', 'IMPORT_DATA', 'EXPORT_DATA',
+  'SUPPLIER_CREATE', 'SUPPLIER_VIEW', 'SUPPLIER_UPDATE', 'SUPPLIER_MANAGE',
+  'PURCHASE_CREATE', 'PURCHASE_VIEW'
 )
 ON DUPLICATE KEY UPDATE role = role;
 
@@ -47,18 +55,22 @@ WHERE code IN (
   'BILL_CREATE', 'BILL_VIEW', 'BILL_UPDATE',
   'CUSTOMER_CREATE', 'CUSTOMER_VIEW', 'CUSTOMER_UPDATE',
   'PRODUCT_CREATE', 'PRODUCT_VIEW', 'PRODUCT_UPDATE', 'PRODUCT_DELETE',
-  'REPORT_VIEW', 'IMPORT_DATA', 'EXPORT_DATA'
+  'REPORT_VIEW', 'IMPORT_DATA', 'EXPORT_DATA',
+  'SUPPLIER_CREATE', 'SUPPLIER_VIEW', 'SUPPLIER_UPDATE', 'SUPPLIER_MANAGE',
+  'PURCHASE_CREATE', 'PURCHASE_VIEW'
 )
 ON DUPLICATE KEY UPDATE role = role;
 
 -- Insert role-permission mappings for CASHIER
--- CASHIER has limited permissions (create bills, view customers and products)
+-- CASHIER has limited permissions (create bills, view customers, products, suppliers)
 INSERT INTO role_permissions (role, permission_id)
 SELECT 'CASHIER', id FROM permissions
 WHERE code IN (
   'BILL_CREATE', 'BILL_VIEW',
   'CUSTOMER_VIEW',
-  'PRODUCT_VIEW'
+  'PRODUCT_VIEW',
+  'SUPPLIER_VIEW',
+  'PURCHASE_VIEW'
 )
 ON DUPLICATE KEY UPDATE role = role;
 

@@ -50,11 +50,26 @@ export class DashboardService {
       },
     });
 
+    // Total supplier payables (amount we owe suppliers)
+    const supplierPayables = await prisma.supplier_ledger.aggregate({
+      where: {
+        tenant_id: tenantId,
+      },
+      _sum: {
+        credit: true,
+        debit: true,
+      },
+    });
+
+    const totalPayables =
+      Number(supplierPayables._sum.credit || 0) - Number(supplierPayables._sum.debit || 0);
+
     return {
       today_sales: Number(todaySales._sum.total_amount || 0),
       pending_invoices: pendingInvoices,
       low_stock_items: lowStockItems,
       total_customers: totalCustomers,
+      supplier_payables: totalPayables,
     };
   }
 }

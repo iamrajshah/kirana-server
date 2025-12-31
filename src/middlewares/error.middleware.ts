@@ -72,6 +72,24 @@ export const errorHandler = (
     return;
   }
 
+  // Handle BigInt serialization errors
+  if (err instanceof TypeError && err.message.includes('BigInt')) {
+    logger.error('BigInt serialization error - check response formatters', {
+      message: err.message,
+      stack: err.stack,
+    });
+    
+    res.status(500).json({
+      success: false,
+      message: 'Data serialization error. Please contact support.',
+      ...(config.env === 'development' && { 
+        detail: 'BigInt fields must be converted to string/number before JSON serialization',
+        stack: err.stack 
+      }),
+    });
+    return;
+  }
+
   // Handle application errors
   if (err instanceof AppError) {
     const response: {

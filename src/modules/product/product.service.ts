@@ -420,6 +420,46 @@ export class ProductService {
   }
 
   /**
+   * Search products for billing screen
+   * Optimized for quick product lookup during billing
+   */
+  async searchForBilling(tenantId: string, searchQuery: string) {
+    const tenantIdBigInt = BigInt(tenantId);
+    
+    console.log('🔍 Search Debug:', {
+      tenantId: tenantIdBigInt.toString(),
+      searchQuery,
+      queryLength: searchQuery.length,
+    });
+
+    const variants = await this.productRepository.searchForBilling(tenantIdBigInt, searchQuery);
+    
+    console.log('📦 Results:', {
+      count: variants.length,
+      variants: variants.map(v => ({
+        id: v.id.toString(),
+        productName: v.products?.name,
+        sku: v.sku,
+      })),
+    });
+
+    // Format lightweight response for billing
+    return variants.map((variant) => ({
+      id: variant.id.toString(),
+      product_id: variant.product_id.toString(),
+      product_name: variant.products?.name || null,
+      brand: variant.brand,
+      size: variant.size,
+      packaging: variant.packaging,
+      price: Number(variant.price),
+      gst_percent: variant.gst_percent ? Number(variant.gst_percent) : null,
+      sku: variant.sku,
+      available_quantity: variant.inventory?.quantity || 0,
+      low_stock_threshold: variant.inventory?.low_stock_threshold || 0,
+    }));
+  }
+
+  /**
    * Format product response
    */
   private formatProductResponse(

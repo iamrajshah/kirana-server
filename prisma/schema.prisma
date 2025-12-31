@@ -70,14 +70,15 @@ model Customer {
 }
 
 model Product {
-  id               BigInt             @id @default(autoincrement())
-  tenant_id        BigInt
-  category_id      BigInt?
-  name             String?            @db.VarChar(150)
-  is_active        Boolean            @default(true)
-  product_variants product_variants[]
-  tenants          Tenant             @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "products_ibfk_1")
-  categories       categories?        @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "products_ibfk_2")
+  id                     BigInt                   @id @default(autoincrement())
+  tenant_id              BigInt
+  category_id            BigInt?
+  name                   String?                  @db.VarChar(150)
+  is_active              Boolean                  @default(true)
+  product_variants       product_variants[]
+  purchase_invoice_items purchase_invoice_items[]
+  tenants                Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "products_ibfk_1")
+  categories             categories?              @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "products_ibfk_2")
 
   @@index([category_id], map: "category_id")
   @@index([tenant_id, is_active], map: "idx_products_active")
@@ -243,20 +244,21 @@ model permissions {
 }
 
 model product_variants {
-  id            BigInt                      @id @default(autoincrement())
-  tenant_id     BigInt
-  product_id    BigInt
-  brand         String?                     @db.VarChar(100)
-  size          String?                     @db.VarChar(50)
-  packaging     product_variants_packaging?
-  price         Decimal?                    @db.Decimal(10, 2)
-  gst_percent   Decimal?                    @db.Decimal(5, 2)
-  sku           String?                     @db.VarChar(50)
-  is_active     Boolean?                    @default(true)
-  inventory     Inventory?
-  invoice_items InvoiceItem[]
-  tenants       Tenant                      @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "product_variants_ibfk_1")
-  products      Product                     @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "product_variants_ibfk_2")
+  id                     BigInt                      @id @default(autoincrement())
+  tenant_id              BigInt
+  product_id             BigInt
+  brand                  String?                     @db.VarChar(100)
+  size                   String?                     @db.VarChar(50)
+  packaging              product_variants_packaging?
+  price                  Decimal?                    @db.Decimal(10, 2)
+  gst_percent            Decimal?                    @db.Decimal(5, 2)
+  sku                    String?                     @db.VarChar(50)
+  is_active              Boolean?                    @default(true)
+  inventory              Inventory?
+  invoice_items          InvoiceItem[]
+  purchase_invoice_items purchase_invoice_items[]
+  tenants                Tenant                      @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "product_variants_ibfk_1")
+  products               Product                     @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "product_variants_ibfk_2")
 
   @@unique([tenant_id, sku], map: "idx_variant_sku_tenant")
   @@index([tenant_id], map: "idx_variant_tenant")
@@ -295,6 +297,70 @@ model user_roles {
 
   @@id([user_id, role_id])
   @@index([role_id], map: "role_id")
+}
+
+model purchase_invoice_items {
+  id                  BigInt            @id @default(autoincrement())
+  purchase_invoice_id BigInt
+  product_id          BigInt
+  variant_id          BigInt?
+  quantity            Decimal           @db.Decimal(10, 2)
+  purchase_price      Decimal           @db.Decimal(10, 2)
+  created_at          DateTime?         @default(now()) @db.DateTime(0)
+  purchase_invoices   purchase_invoices @relation(fields: [purchase_invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_invoice_items_ibfk_1")
+  products            Product           @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_invoice_items_product_fk")
+  product_variants    product_variants? @relation(fields: [variant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_invoice_items_variant_fk")
+
+  @@index([purchase_invoice_id], map: "purchase_invoice_id")
+  @@index([product_id], map: "product_id_idx")
+  @@index([variant_id], map: "variant_id_idx")
+}
+
+model purchase_invoices {
+  id                     BigInt                    @id @default(autoincrement())
+  tenant_id              BigInt
+  supplier_id            BigInt
+  invoice_number         String?                   @db.VarChar(100)
+  invoice_date           DateTime                  @db.Date
+  total_amount           Decimal                   @db.Decimal(12, 2)
+  paid_amount            Decimal?                  @default(0.00) @db.Decimal(12, 2)
+  status                 purchase_invoices_status? @default(UNPAID)
+  created_at             DateTime?                 @default(now()) @db.DateTime(0)
+  purchase_invoice_items purchase_invoice_items[]
+  suppliers              suppliers                 @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_invoices_ibfk_1")
+
+  @@index([supplier_id], map: "idx_purchase_supplier")
+}
+
+model supplier_ledger {
+  id           BigInt                   @id @default(autoincrement())
+  tenant_id    BigInt
+  supplier_id  BigInt
+  ref_type     supplier_ledger_ref_type
+  ref_id       BigInt?
+  credit       Decimal?                 @default(0.00) @db.Decimal(12, 2)
+  debit        Decimal?                 @default(0.00) @db.Decimal(12, 2)
+  balance      Decimal                  @db.Decimal(12, 2)
+  payment_mode String?                  @db.VarChar(20)
+  description  String?                  @db.Text
+  created_at   DateTime?                @default(now()) @db.DateTime(0)
+
+  @@index([supplier_id, created_at], map: "idx_supplier_ledger")
+}
+
+model suppliers {
+  id                BigInt              @id @default(autoincrement())
+  tenant_id         BigInt
+  name              String              @db.VarChar(255)
+  phone             String?             @db.VarChar(20)
+  email             String?             @db.VarChar(255)
+  address           String?             @db.Text
+  is_active         Boolean?            @default(true)
+  created_at        DateTime?           @default(now()) @db.DateTime(0)
+  purchase_invoices purchase_invoices[]
+
+  @@unique([tenant_id, phone], map: "tenant_id")
+  @@index([tenant_id], map: "idx_supplier_tenant")
 }
 
 enum role_permissions_role {
@@ -368,4 +434,16 @@ enum invoices_status {
 enum tenants_status {
   ACTIVE
   SUSPENDED
+}
+
+enum supplier_ledger_ref_type {
+  OPENING
+  PURCHASE
+  PAYMENT
+}
+
+enum purchase_invoices_status {
+  UNPAID
+  PARTIAL
+  PAID
 }

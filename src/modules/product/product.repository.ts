@@ -1,6 +1,19 @@
 import { prisma } from '@config/database';
 import { Product, product_variants } from '@prisma/client';
 
+// Type for search results with includes
+type VariantWithProductAndInventory = product_variants & {
+  products: {
+    id: bigint;
+    name: string | null;
+    category_id: bigint | null;
+  } | null;
+  inventory: {
+    quantity: number | null;
+    low_stock_threshold: number | null;
+  } | null;
+};
+
 export class ProductRepository {
   /**
    * Create a new product
@@ -98,6 +111,92 @@ export class ProductRepository {
     ]);
 
     return { products, total };
+  }
+
+  /**
+   * Search products for billing screen
+   * - Optimized for performance with indexed queries
+   * - Searches by product name OR variant SKU
+   * - If product name matches, returns ALL active variants of that product
+   * - Only active products and variants
+   * - Includes inventory data with quantities
+   * - Limited to 20 results total
+   * - Tenant-aware for multi-tenancy
+   */
+  async searchForBilling(
+    tenant_id: bigint,
+    searchQuery: string
+  ): Promise<VariantWithProductAndInventory[]> {
+    // Trim and prepare search term
+    const searchTerm = searchQuery.trim();
+    
+    if (!searchTerm || searchTerm.length < 2) {
+      return [];
+    }
+
+    /**
+     * Search Logic:
+     * 1. Match by variant SKU - returns specific variant
+     * 2. Match by product name - returns ALL active variants of matching products
+     * 
+     * Example: Search "oil"
+     * - Product "Cooking Oil" has 3 variants (500ml, 1L, 2L)
+     * - All 3 variants will be returned if product name matches
+     * - Specific variant returned if its SKU matches
+     * 
+     * Note: MySQL LIKE is case-insensitive by default
+     */
+    return prisma.product_variants.findMany({
+      where: {
+        tenant_id,
+        is_active: true,
+        products: {
+          is_active: true,
+        },
+        OR: [
+          // Search by variant SKU - exact variant match
+          {
+            sku: {
+              contains: searchTerm,
+            },
+          },
+          // Search by product name - returns all variants of matching product
+          {
+            products: {
+              name: {
+                contains: searchTerm,
+              },
+            },
+          },
+        ],
+      },
+      include: {
+        products: {
+          select: {
+            id: true,
+            name: true,
+            category_id: true,
+          },
+        },
+        inventory: {
+          select: {
+            quantity: true,
+            low_stock_threshold: true,
+          },
+        },
+      },
+      orderBy: [
+        {
+          products: {
+            name: 'asc',
+          },
+        },
+        {
+          id: 'asc',
+        },
+      ],
+      take: 20,
+    });
   }
 
   /**

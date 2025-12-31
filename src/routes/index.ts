@@ -11,6 +11,8 @@ import paymentRoutes from '@modules/payment/payment.routes';
 import reportsRoutes from '@modules/reports/reports.routes';
 import importRoutes from '@modules/import/import.routes';
 import dashboardRoutes from '@modules/dashboard/dashboard.routes';
+import supplierRoutes from '@modules/supplier/supplier.routes';
+import purchaseRoutes from '@modules/purchase/purchase.routes';
 
 const router = Router();
 
@@ -22,11 +24,13 @@ router.use('/auth', authRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/users', userRoutes);
 router.use('/customers', customerRoutes);
+router.use('/suppliers', supplierRoutes);
 router.use('/products', productRoutes);
 router.use('/variants', variantRoutes);
 router.use('/categories', categoryRoutes);
 router.use('/inventory', inventoryRoutes);
 router.use('/invoices', invoiceRoutes);
+router.use('/purchases', purchaseRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/reports', reportsRoutes);
 router.use('/import', importRoutes);

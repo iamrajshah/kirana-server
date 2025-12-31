@@ -144,4 +144,44 @@ export class ProductController {
       data: variant,
     });
   });
+
+  /**
+   * Search products for billing screen
+   * Optimized for quick product lookup with inventory data
+   */
+  searchForBilling = asyncHandler(async (req: Request, res: Response): Promise<Response> => {
+    console.log('🎯 Controller reached - searchForBilling');
+    console.log('📋 Full request query object:', JSON.stringify(req.query, null, 2));
+    
+    const { tenantId } = req as TenantRequest;
+    const searchQuery = (req.query.q as string) || '';
+    const trimmedQuery = searchQuery.trim();
+
+    console.log('🔑 Query processing:', {
+      tenantId,
+      rawQuery: searchQuery,
+      rawLength: searchQuery.length,
+      trimmedQuery: trimmedQuery,
+      trimmedLength: trimmedQuery.length,
+      willPass: trimmedQuery.length >= 2,
+    });
+
+    if (!trimmedQuery || trimmedQuery.length < 2) {
+      console.log('⚠️ Query validation failed - too short');
+      return res.json({
+        success: true,
+        data: [],
+        message: 'Search query must be at least 2 characters',
+      });
+    }
+
+    console.log('✅ Query validated, calling service...');
+    const results = await this.productService.searchForBilling(tenantId, trimmedQuery);
+
+    console.log('📤 Sending response:', { count: results.length });
+    return res.json({
+      success: true,
+      data: results,
+    });
+  });
 }
