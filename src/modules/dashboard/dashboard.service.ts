@@ -64,12 +64,30 @@ export class DashboardService {
     const totalPayables =
       Number(supplierPayables._sum.credit || 0) - Number(supplierPayables._sum.debit || 0);
 
+    // Total customer receivables (amount customers owe us)
+    // Sum of all customer credit_balance where balance > 0 (customer owes us)
+    const customerReceivables = await prisma.customer.aggregate({
+      where: {
+        tenant_id: tenantId,
+        is_active: true,
+        credit_balance: {
+          gt: 0,
+        },
+      },
+      _sum: {
+        credit_balance: true,
+      },
+    });
+
+    const totalReceivables = Number(customerReceivables._sum.credit_balance || 0);
+
     return {
       today_sales: Number(todaySales._sum.total_amount || 0),
       pending_invoices: pendingInvoices,
       low_stock_items: lowStockItems,
       total_customers: totalCustomers,
       supplier_payables: totalPayables,
+      customer_receivables: totalReceivables,
     };
   }
 }
