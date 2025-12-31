@@ -330,4 +330,325 @@ export class ReportsRepository {
     ]);
     return invoiceCount > 0 || paymentCount > 0;
   }
+
+  /**
+   * SUPPLIER & PURCHASE REPORTS
+   */
+
+  /**
+   * Get supplier outstanding balances
+   * Shows suppliers we owe money to with their outstanding amounts
+   */
+  async getSupplierOutstanding(
+    tenant_id: bigint,
+    options?: {
+      skip?: number;
+      take?: number;
+      minAmount?: number;
+    }
+  ): Promise<{ data: any[]; total: number }> {
+    const minAmount = options?.minAmount || 0;
+
+    const data = await prisma.$queryRaw<any[]>`
+      SELECT 
+        s.id,
+        s.name,
+        s.phone,
+        s.email,
+        COALESCE(SUM(sl.credit), 0) - COALESCE(SUM(sl.debit), 0) as outstanding_balance,
+        COUNT(DISTINCT pi.id) as total_invoices,
+        MAX(sl.created_at) as last_transaction_date
+      FROM suppliers s
+      LEFT JOIN supplier_ledger sl ON s.id = sl.supplier_id
+      LEFT JOIN purchase_invoices pi ON s.id = pi.supplier_id AND pi.status != 'PAID'
+      WHERE s.tenant_id = ${tenant_id}
+        AND s.is_active = 1
+      GROUP BY s.id, s.name, s.phone, s.email
+      HAVING outstanding_balance > ${minAmount}
+      ORDER BY outstanding_balance DESC
+      ${options?.take ? Prisma.sql`LIMIT ${options.take}` : Prisma.sql``}
+      ${options?.skip ? Prisma.sql`OFFSET ${options.skip}` : Prisma.sql``}
+    `;
+
+    const totalResult = await prisma.$queryRaw<[{ count: bigint }]>`
+      SELECT COUNT(DISTINCT s.id) as count
+      FROM suppliers s
+      LEFT JOIN supplier_ledger sl ON s.id = sl.supplier_id
+      WHERE s.tenant_id = ${tenant_id}
+        AND s.is_active = 1
+      GROUP BY s.id
+      HAVING COALESCE(SUM(sl.credit), 0) - COALESCE(SUM(sl.debit), 0) > ${minAmount}
+    `;
+
+    return {
+      data,
+      total: totalResult.length,
+    };
+  }
+
+  /**
+   * Get purchase register - all purchases with filters
+   * SQL optimized with proper indexing
+   */
+  async getPurchaseRegister(
+    tenant_id: bigint,
+    options?: {
+      skip?: number;
+      take?: number;
+      from?: Date;
+      to?: Date;
+      supplierId?: bigint;
+      status?: string;
+    }
+  ): Promise<{ data: any[]; total: number; summary: any }> {
+    let dateFilter = Prisma.sql``;
+    if (options?.from) {
+      dateFilter = Prisma.sql`AND pi.invoice_date >= ${options.from}`;
+    }
+    if (options?.to) {
+      dateFilter = Prisma.sql`${dateFilter} AND pi.invoice_date <= ${options.to}`;
+    }
+
+    let supplierFilter = Prisma.sql``;
+    if (options?.supplierId) {
+      supplierFilter = Prisma.sql`AND pi.supplier_id = ${options.supplierId}`;
+    }
+
+    let statusFilter = Prisma.sql``;
+    if (options?.status) {
+      statusFilter = Prisma.sql`AND pi.status = ${options.status}`;
+    }
+
+    const data = await prisma.$queryRaw<any[]>`
+      SELECT 
+        pi.id,
+        pi.invoice_number,
+        pi.invoice_date,
+        pi.total_amount,
+        pi.paid_amount,
+        pi.status,
+        s.name as supplier_name,
+        s.phone as supplier_phone,
+        COUNT(pii.id) as item_count,
+        pi.created_at
+      FROM purchase_invoices pi
+      INNER JOIN suppliers s ON pi.supplier_id = s.id
+      LEFT JOIN purchase_invoice_items pii ON pi.id = pii.purchase_invoice_id
+      WHERE pi.tenant_id = ${tenant_id}
+        ${dateFilter}
+        ${supplierFilter}
+        ${statusFilter}
+      GROUP BY pi.id, pi.invoice_number, pi.invoice_date, pi.total_amount, 
+               pi.paid_amount, pi.status, s.name, s.phone, pi.created_at
+      ORDER BY pi.invoice_date DESC, pi.created_at DESC
+      ${options?.take ? Prisma.sql`LIMIT ${options.take}` : Prisma.sql``}
+      ${options?.skip ? Prisma.sql`OFFSET ${options.skip}` : Prisma.sql``}
+    `;
+
+    const countResult = await prisma.$queryRaw<[{ total: bigint }]>`
+      SELECT COUNT(DISTINCT pi.id) as total
+      FROM purchase_invoices pi
+      WHERE pi.tenant_id = ${tenant_id}
+        ${dateFilter}
+        ${supplierFilter}
+        ${statusFilter}
+    `;
+
+    const summaryResult = await prisma.$queryRaw<[any]>`
+      SELECT 
+        COUNT(DISTINCT pi.id) as total_purchases,
+        COALESCE(SUM(pi.total_amount), 0) as total_amount,
+        COALESCE(SUM(pi.paid_amount), 0) as total_paid,
+        COALESCE(SUM(pi.total_amount - pi.paid_amount), 0) as total_outstanding
+      FROM purchase_invoices pi
+      WHERE pi.tenant_id = ${tenant_id}
+        ${dateFilter}
+        ${supplierFilter}
+        ${statusFilter}
+    `;
+
+    return {
+      data,
+      total: Number(countResult[0]?.total || 0),
+      summary: summaryResult[0] || {},
+    };
+  }
+
+  /**
+   * Get supplier ledger summary
+   * Groups ledger entries by supplier with aggregated data
+   */
+  async getSupplierLedgerSummary(
+    tenant_id: bigint,
+    options?: {
+      skip?: number;
+      take?: number;
+      from?: Date;
+      to?: Date;
+      supplierId?: bigint;
+    }
+  ): Promise<{ data: any[]; total: number }> {
+    let dateFilter = Prisma.sql``;
+    if (options?.from) {
+      dateFilter = Prisma.sql`AND sl.created_at >= ${options.from}`;
+    }
+    if (options?.to) {
+      dateFilter = Prisma.sql`${dateFilter} AND sl.created_at <= ${options.to}`;
+    }
+
+    let supplierFilter = Prisma.sql``;
+    if (options?.supplierId) {
+      supplierFilter = Prisma.sql`AND sl.supplier_id = ${options.supplierId}`;
+    }
+
+    const data = await prisma.$queryRaw<any[]>`
+      SELECT 
+        s.id as supplier_id,
+        s.name as supplier_name,
+        s.phone,
+        s.email,
+        COUNT(sl.id) as transaction_count,
+        COALESCE(SUM(sl.credit), 0) as total_credit,
+        COALESCE(SUM(sl.debit), 0) as total_debit,
+        COALESCE(SUM(sl.credit), 0) - COALESCE(SUM(sl.debit), 0) as balance,
+        MIN(sl.created_at) as first_transaction,
+        MAX(sl.created_at) as last_transaction
+      FROM suppliers s
+      INNER JOIN supplier_ledger sl ON s.id = sl.supplier_id
+      WHERE sl.tenant_id = ${tenant_id}
+        ${dateFilter}
+        ${supplierFilter}
+      GROUP BY s.id, s.name, s.phone, s.email
+      ORDER BY balance DESC
+      ${options?.take ? Prisma.sql`LIMIT ${options.take}` : Prisma.sql``}
+      ${options?.skip ? Prisma.sql`OFFSET ${options.skip}` : Prisma.sql``}
+    `;
+
+    const countResult = await prisma.$queryRaw<[{ count: bigint }]>`
+      SELECT COUNT(DISTINCT s.id) as count
+      FROM suppliers s
+      INNER JOIN supplier_ledger sl ON s.id = sl.supplier_id
+      WHERE sl.tenant_id = ${tenant_id}
+        ${dateFilter}
+        ${supplierFilter}
+    `;
+
+    return {
+      data,
+      total: Number(countResult[0]?.count || 0),
+    };
+  }
+
+  /**
+   * Get top payables - suppliers we owe the most
+   * Optimized query with limit for performance
+   */
+  async getTopPayables(
+    tenant_id: bigint,
+    limit: number = 10
+  ): Promise<any[]> {
+    return prisma.$queryRaw<any[]>`
+      SELECT 
+        s.id,
+        s.name,
+        s.phone,
+        s.email,
+        COALESCE(SUM(sl.credit), 0) - COALESCE(SUM(sl.debit), 0) as outstanding_amount,
+        COUNT(DISTINCT pi.id) as unpaid_invoices,
+        MAX(pi.invoice_date) as latest_invoice_date,
+        MAX(sl.created_at) as last_transaction_date
+      FROM suppliers s
+      LEFT JOIN supplier_ledger sl ON s.id = sl.supplier_id
+      LEFT JOIN purchase_invoices pi ON s.id = pi.supplier_id AND pi.status != 'PAID'
+      WHERE s.tenant_id = ${tenant_id}
+        AND s.is_active = 1
+      GROUP BY s.id, s.name, s.phone, s.email
+      HAVING outstanding_amount > 0
+      ORDER BY outstanding_amount DESC
+      LIMIT ${limit}
+    `;
+  }
+
+  /**
+   * Get purchase summary by month
+   * For trend analysis
+   */
+  async getPurchaseTrendByMonth(
+    tenant_id: bigint,
+    months: number = 12
+  ): Promise<any[]> {
+    return prisma.$queryRaw<any[]>`
+      SELECT 
+        DATE_FORMAT(invoice_date, '%Y-%m') as month,
+        COUNT(id) as purchase_count,
+        SUM(total_amount) as total_amount,
+        SUM(paid_amount) as paid_amount,
+        AVG(total_amount) as avg_purchase_value
+      FROM purchase_invoices
+      WHERE tenant_id = ${tenant_id}
+        AND invoice_date >= DATE_SUB(CURDATE(), INTERVAL ${months} MONTH)
+      GROUP BY DATE_FORMAT(invoice_date, '%Y-%m')
+      ORDER BY month DESC
+    `;
+  }
+
+  /**
+   * Get supplier payment history
+   * Detailed ledger entries for a specific supplier
+   */
+  async getSupplierPaymentHistory(
+    tenant_id: bigint,
+    supplier_id: bigint,
+    options?: {
+      skip?: number;
+      take?: number;
+      from?: Date;
+      to?: Date;
+    }
+  ): Promise<{ data: any[]; total: number }> {
+    let dateFilter = Prisma.sql``;
+    if (options?.from) {
+      dateFilter = Prisma.sql`AND sl.created_at >= ${options.from}`;
+    }
+    if (options?.to) {
+      dateFilter = Prisma.sql`${dateFilter} AND sl.created_at <= ${options.to}`;
+    }
+
+    const data = await prisma.$queryRaw<any[]>`
+      SELECT 
+        sl.id,
+        sl.ref_type,
+        sl.ref_id,
+        sl.credit,
+        sl.debit,
+        sl.balance,
+        sl.payment_mode,
+        sl.description,
+        sl.created_at,
+        pi.invoice_number,
+        pi.invoice_date
+      FROM supplier_ledger sl
+      LEFT JOIN purchase_invoices pi ON sl.ref_type = 'PURCHASE' AND sl.ref_id = pi.id
+      WHERE sl.tenant_id = ${tenant_id}
+        AND sl.supplier_id = ${supplier_id}
+        ${dateFilter}
+      ORDER BY sl.created_at DESC, sl.id DESC
+      ${options?.take ? Prisma.sql`LIMIT ${options.take}` : Prisma.sql``}
+      ${options?.skip ? Prisma.sql`OFFSET ${options.skip}` : Prisma.sql``}
+    `;
+
+    const countResult = await prisma.$queryRaw<[{ total: bigint }]>`
+      SELECT COUNT(*) as total
+      FROM supplier_ledger
+      WHERE tenant_id = ${tenant_id}
+        AND supplier_id = ${supplier_id}
+        ${dateFilter}
+    `;
+
+    return {
+      data,
+      total: Number(countResult[0]?.total || 0),
+    };
+  }
 }
+

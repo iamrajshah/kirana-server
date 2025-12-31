@@ -51,9 +51,10 @@ export class InventoryRepository {
             },
           },
         },
-        orderBy: {
-          variant_id: 'desc',
-        },
+        orderBy: [
+          { quantity: 'asc' },
+          { low_stock_threshold: 'desc' }
+        ],
       }),
       prisma.inventory.count({ where }),
     ]);

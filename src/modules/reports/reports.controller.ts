@@ -93,4 +93,118 @@ export class ReportsController {
       data: report,
     });
   };
+
+  /**
+   * SUPPLIER & PURCHASE REPORTS
+   */
+
+  getSupplierOutstanding = async (req: Request, res: Response) => {
+    const { tenantId } = req as TenantRequest;
+    const tenant_id = BigInt(tenantId);
+    const page = req.query.page ? parseInt(req.query.page as string) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+    const minAmount = req.query.minAmount ? parseFloat(req.query.minAmount as string) : undefined;
+
+    const report = await this.reportsService.getSupplierOutstanding(tenant_id, page, limit, minAmount);
+
+    res.json({
+      success: true,
+      data: report.data,
+      pagination: report.pagination,
+    });
+  };
+
+  getPurchaseRegister = async (req: Request, res: Response) => {
+    const { tenantId } = req as TenantRequest;
+    const tenant_id = BigInt(tenantId);
+    const page = req.query.page ? parseInt(req.query.page as string) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+    const { from, to, supplierId, status } = req.query;
+
+    const report = await this.reportsService.getPurchaseRegister(tenant_id, page, limit, {
+      from: from as string,
+      to: to as string,
+      supplierId: supplierId as string,
+      status: status as string,
+    });
+
+    res.json({
+      success: true,
+      data: report.data,
+      summary: report.summary,
+      pagination: report.pagination,
+    });
+  };
+
+  getSupplierLedgerSummary = async (req: Request, res: Response) => {
+    const { tenantId } = req as TenantRequest;
+    const tenant_id = BigInt(tenantId);
+    const page = req.query.page ? parseInt(req.query.page as string) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+    const { from, to, supplierId } = req.query;
+
+    const report = await this.reportsService.getSupplierLedgerSummary(tenant_id, page, limit, {
+      from: from as string,
+      to: to as string,
+      supplierId: supplierId as string,
+    });
+
+    res.json({
+      success: true,
+      data: report.data,
+      pagination: report.pagination,
+    });
+  };
+
+  getTopPayables = async (req: Request, res: Response) => {
+    const { tenantId } = req as TenantRequest;
+    const tenant_id = BigInt(tenantId);
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+
+    const report = await this.reportsService.getTopPayables(tenant_id, limit);
+
+    res.json({
+      success: true,
+      data: report.data,
+    });
+  };
+
+  getPurchaseTrend = async (req: Request, res: Response) => {
+    const { tenantId } = req as TenantRequest;
+    const tenant_id = BigInt(tenantId);
+    const months = req.query.months ? parseInt(req.query.months as string) : 12;
+
+    const report = await this.reportsService.getPurchaseTrend(tenant_id, months);
+
+    res.json({
+      success: true,
+      data: report.data,
+    });
+  };
+
+  getSupplierPaymentHistory = async (req: Request, res: Response) => {
+    const { tenantId } = req as TenantRequest;
+    const tenant_id = BigInt(tenantId);
+    const { supplierId } = req.params;
+    const page = req.query.page ? parseInt(req.query.page as string) : 1;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+    const { from, to } = req.query;
+
+    const report = await this.reportsService.getSupplierPaymentHistory(
+      tenant_id,
+      supplierId,
+      page,
+      limit,
+      {
+        from: from as string,
+        to: to as string,
+      }
+    );
+
+    res.json({
+      success: true,
+      data: report.data,
+      pagination: report.pagination,
+    });
+  };
 }

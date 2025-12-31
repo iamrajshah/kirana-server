@@ -99,7 +99,10 @@ export class CustomerRepository extends BaseRepository<
         where,
         skip: options?.skip,
         take: options?.take,
-        orderBy: { created_at: 'desc' },
+        orderBy: [
+          { credit_balance: 'desc' },
+          { created_at: 'desc' }
+        ],
       }),
       prisma.customer.count({ where }),
     ]);

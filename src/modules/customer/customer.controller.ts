@@ -17,20 +17,20 @@ export class CustomerController {
    */
   getAll = asyncHandler(async (req: Request, res: Response): Promise<Response> => {
     const { tenantId } = req as TenantRequest;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 50;
+    const skip = parseInt(req.query.skip as string) || 0;
+    const take = parseInt(req.query.take as string) || 50;
     const search = req.query.search as string | undefined;
     const includeInactive = req.query.includeInactive === 'true';
 
-    const result = await this.customerService.getAll(tenantId, page, limit, search, includeInactive);
+    const result = await this.customerService.getAll(tenantId, skip, take, search, includeInactive);
 
     return res.json({
       success: true,
       data: result.customers,
       meta: {
         total: result.total,
-        page: result.page,
-        limit: result.limit,
+        page: Math.floor(skip / take) + 1,
+        limit: take,
       },
     });
   });

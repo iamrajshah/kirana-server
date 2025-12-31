@@ -182,4 +182,225 @@ export class ReportsService {
       })),
     };
   }
+
+  /**
+   * SUPPLIER & PURCHASE REPORTS
+   */
+
+  /**
+   * Get supplier outstanding report
+   */
+  async getSupplierOutstanding(
+    tenant_id: bigint,
+    page: number = 1,
+    limit: number = 50,
+    minAmount?: number
+  ) {
+    const skip = (page - 1) * limit;
+    const { data, total } = await this.reportsRepository.getSupplierOutstanding(tenant_id, {
+      skip,
+      take: limit,
+      minAmount,
+    });
+
+    return {
+      data: data.map((supplier: any) => ({
+        id: supplier.id?.toString(),
+        name: supplier.name,
+        phone: supplier.phone,
+        email: supplier.email,
+        outstanding_balance: Number(supplier.outstanding_balance || 0),
+        total_invoices: Number(supplier.total_invoices || 0),
+        last_transaction_date: supplier.last_transaction_date,
+      })),
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Get purchase register
+   */
+  async getPurchaseRegister(
+    tenant_id: bigint,
+    page: number = 1,
+    limit: number = 50,
+    filters?: {
+      from?: string;
+      to?: string;
+      supplierId?: string;
+      status?: string;
+    }
+  ) {
+    const skip = (page - 1) * limit;
+    const { data, total, summary } = await this.reportsRepository.getPurchaseRegister(tenant_id, {
+      skip,
+      take: limit,
+      from: filters?.from ? new Date(filters.from) : undefined,
+      to: filters?.to ? new Date(filters.to) : undefined,
+      supplierId: filters?.supplierId ? BigInt(filters.supplierId) : undefined,
+      status: filters?.status,
+    });
+
+    return {
+      data: data.map((purchase: any) => ({
+        id: purchase.id?.toString(),
+        invoice_number: purchase.invoice_number,
+        invoice_date: purchase.invoice_date,
+        total_amount: Number(purchase.total_amount || 0),
+        paid_amount: Number(purchase.paid_amount || 0),
+        pending_amount: Number(purchase.total_amount || 0) - Number(purchase.paid_amount || 0),
+        status: purchase.status,
+        supplier_name: purchase.supplier_name,
+        supplier_phone: purchase.supplier_phone,
+        item_count: Number(purchase.item_count || 0),
+        created_at: purchase.created_at,
+      })),
+      summary: {
+        total_purchases: Number(summary.total_purchases || 0),
+        total_amount: Number(summary.total_amount || 0),
+        total_paid: Number(summary.total_paid || 0),
+        total_outstanding: Number(summary.total_outstanding || 0),
+      },
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Get supplier ledger summary
+   */
+  async getSupplierLedgerSummary(
+    tenant_id: bigint,
+    page: number = 1,
+    limit: number = 50,
+    filters?: {
+      from?: string;
+      to?: string;
+      supplierId?: string;
+    }
+  ) {
+    const skip = (page - 1) * limit;
+    const { data, total } = await this.reportsRepository.getSupplierLedgerSummary(tenant_id, {
+      skip,
+      take: limit,
+      from: filters?.from ? new Date(filters.from) : undefined,
+      to: filters?.to ? new Date(filters.to) : undefined,
+      supplierId: filters?.supplierId ? BigInt(filters.supplierId) : undefined,
+    });
+
+    return {
+      data: data.map((supplier: any) => ({
+        supplier_id: supplier.supplier_id?.toString(),
+        supplier_name: supplier.supplier_name,
+        phone: supplier.phone,
+        email: supplier.email,
+        transaction_count: Number(supplier.transaction_count || 0),
+        total_credit: Number(supplier.total_credit || 0),
+        total_debit: Number(supplier.total_debit || 0),
+        balance: Number(supplier.balance || 0),
+        first_transaction: supplier.first_transaction,
+        last_transaction: supplier.last_transaction,
+      })),
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Get top payables
+   */
+  async getTopPayables(tenant_id: bigint, limit: number = 10) {
+    const data = await this.reportsRepository.getTopPayables(tenant_id, limit);
+
+    return {
+      data: data.map((supplier: any) => ({
+        id: supplier.id?.toString(),
+        name: supplier.name,
+        phone: supplier.phone,
+        email: supplier.email,
+        outstanding_amount: Number(supplier.outstanding_amount || 0),
+        unpaid_invoices: Number(supplier.unpaid_invoices || 0),
+        latest_invoice_date: supplier.latest_invoice_date,
+        last_transaction_date: supplier.last_transaction_date,
+      })),
+    };
+  }
+
+  /**
+   * Get purchase trend by month
+   */
+  async getPurchaseTrend(tenant_id: bigint, months: number = 12) {
+    const data = await this.reportsRepository.getPurchaseTrendByMonth(tenant_id, months);
+
+    return {
+      data: data.map((month: any) => ({
+        month: month.month,
+        purchase_count: Number(month.purchase_count || 0),
+        total_amount: Number(month.total_amount || 0),
+        paid_amount: Number(month.paid_amount || 0),
+        avg_purchase_value: Number(month.avg_purchase_value || 0),
+      })),
+    };
+  }
+
+  /**
+   * Get supplier payment history
+   */
+  async getSupplierPaymentHistory(
+    tenant_id: bigint,
+    supplier_id: string,
+    page: number = 1,
+    limit: number = 50,
+    filters?: {
+      from?: string;
+      to?: string;
+    }
+  ) {
+    const skip = (page - 1) * limit;
+    const { data, total } = await this.reportsRepository.getSupplierPaymentHistory(
+      tenant_id,
+      BigInt(supplier_id),
+      {
+        skip,
+        take: limit,
+        from: filters?.from ? new Date(filters.from) : undefined,
+        to: filters?.to ? new Date(filters.to) : undefined,
+      }
+    );
+
+    return {
+      data: data.map((entry: any) => ({
+        id: entry.id?.toString(),
+        ref_type: entry.ref_type,
+        ref_id: entry.ref_id?.toString(),
+        credit: Number(entry.credit || 0),
+        debit: Number(entry.debit || 0),
+        balance: Number(entry.balance || 0),
+        payment_mode: entry.payment_mode,
+        description: entry.description,
+        created_at: entry.created_at,
+        invoice_number: entry.invoice_number,
+        invoice_date: entry.invoice_date,
+      })),
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
 }

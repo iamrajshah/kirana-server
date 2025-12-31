@@ -42,7 +42,11 @@ export class ProductRepository {
         tenant_id,
       },
       include: {
+        categories: true,
         product_variants: {
+          include: {
+            inventory: true,
+          },
           orderBy: {
             id: 'asc',
           },
@@ -97,6 +101,7 @@ export class ProductRepository {
         skip: options?.skip,
         take: options?.take,
         include: {
+          categories: true,
           product_variants: {
             orderBy: {
               id: 'asc',

@@ -103,17 +103,16 @@ export class CustomerService {
    */
   async getAll(
     tenantId: string,
-    page: number = 1,
-    limit: number = 50,
+    skip: number = 0,
+    take: number = 50,
     searchQuery?: string,
     includeInactive: boolean = false
-  ): Promise<{ customers: CustomerResponse[]; total: number; page: number; limit: number }> {
+  ): Promise<{ customers: CustomerResponse[]; total: number; skip: number; take: number }> {
     const tenantIdBigInt = BigInt(tenantId);
-    const skip = (page - 1) * limit;
 
     const { customers, total } = await this.repository.findAllByTenant(tenantIdBigInt, {
       skip,
-      take: limit,
+      take,
       searchQuery,
       includeInactive,
     });
@@ -121,8 +120,8 @@ export class CustomerService {
     return {
       customers: customers.map((c) => this.formatCustomerResponse(c)),
       total,
-      page,
-      limit,
+      skip,
+      take,
     };
   }
 
