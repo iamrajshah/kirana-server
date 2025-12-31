@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      = "mysql://root@localhost:3306/kirana_saas"
+  url      = "mysql://root:IouhKtDHuRqauIFIpoVrnayyKnNDVwzN@nozomi.proxy.rlwy.net:21200/kirana_saas"
 }
 
 model Tenant {
