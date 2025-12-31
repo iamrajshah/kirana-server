@@ -56,7 +56,16 @@ export class PurchaseRepository {
         tenant_id: tenantId,
       },
       include: {
-        purchase_invoice_items: true,
+        purchase_invoice_items: {
+          include: {
+            products: true,
+            product_variants: {
+              include: {
+                products: true,
+              },
+            },
+          },
+        },
         suppliers: true,
       },
     });

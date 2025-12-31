@@ -174,14 +174,23 @@ export class SupplierRepository {
     ref_id?: bigint | null;
     credit: number;
     debit: number;
+    payment_mode?: string;
+    description?: string;
   }) {
     const balance = await this.getBalance(data.supplier_id, data.tenant_id);
     const newBalance = balance + data.credit - data.debit;
 
     return prisma.supplier_ledger.create({
       data: {
-        ...data,
+        tenant_id: data.tenant_id,
+        supplier_id: data.supplier_id,
+        ref_type: data.ref_type,
+        ref_id: data.ref_id,
+        credit: data.credit,
+        debit: data.debit,
         balance: newBalance,
+        payment_mode: data.payment_mode,
+        description: data.description,
       },
     });
   }

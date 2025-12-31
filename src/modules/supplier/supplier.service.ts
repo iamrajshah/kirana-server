@@ -22,6 +22,8 @@ export interface SupplierLedgerResponse {
   credit: number;
   debit: number;
   balance: number;
+  payment_mode?: string;
+  description?: string;
   created_at: Date | null;
 }
 
@@ -240,6 +242,8 @@ export class SupplierService {
       ref_id: null,
       credit: 0,
       debit: data.amount,
+      payment_mode: data.payment_mode,
+      description: data.description,
     });
 
     const result = { ledgerEntry };
@@ -320,6 +324,8 @@ export class SupplierService {
       credit: Number(entry.credit),
       debit: Number(entry.debit),
       balance: Number(entry.balance),
+      payment_mode: entry.payment_mode || undefined,
+      description: entry.description || undefined,
       created_at: entry.created_at,
     };
   }

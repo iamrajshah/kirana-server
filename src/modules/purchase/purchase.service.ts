@@ -30,6 +30,10 @@ export interface PurchaseResponse {
     variant_id: string;
     quantity: number;
     purchase_price: number;
+    product_name?: string;
+    sku?: string;
+    brand?: string;
+    size?: string;
   }>;
 }
 
@@ -246,12 +250,21 @@ export class PurchaseService {
         },
       }),
       ...(purchase.purchase_invoice_items && {
-        items: purchase.purchase_invoice_items.map((item: any) => ({
-          id: item.id.toString(),
-          variant_id: item.variant_id.toString(),
-          quantity: item.quantity,
-          purchase_price: Number(item.purchase_price),
-        })),
+        items: purchase.purchase_invoice_items.map((item: any) => {
+          const variant = item.product_variants;
+          const product = item.products || variant?.products;
+          
+          return {
+            id: item.id.toString(),
+            variant_id: item.variant_id?.toString() || '',
+            quantity: Number(item.quantity),
+            purchase_price: Number(item.purchase_price),
+            product_name: product?.name || 'Unknown Product',
+            sku: variant?.sku || '',
+            brand: variant?.brand || '',
+            size: variant?.size || '',
+          };
+        }),
       }),
     };
   }
