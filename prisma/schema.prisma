@@ -297,6 +297,64 @@ model user_roles {
   @@index([role_id], map: "role_id")
 }
 
+model purchase_invoice_items {
+  id                  BigInt            @id @default(autoincrement())
+  purchase_invoice_id BigInt
+  product_id          BigInt
+  variant_id          BigInt?
+  quantity            Decimal           @db.Decimal(10, 2)
+  purchase_price      Decimal           @db.Decimal(10, 2)
+  created_at          DateTime?         @default(now()) @db.DateTime(0)
+  purchase_invoices   purchase_invoices @relation(fields: [purchase_invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_invoice_items_ibfk_1")
+
+  @@index([purchase_invoice_id], map: "purchase_invoice_id")
+}
+
+model purchase_invoices {
+  id                     BigInt                    @id @default(autoincrement())
+  tenant_id              BigInt
+  supplier_id            BigInt
+  invoice_number         String?                   @db.VarChar(100)
+  invoice_date           DateTime                  @db.Date
+  total_amount           Decimal                   @db.Decimal(12, 2)
+  paid_amount            Decimal?                  @default(0.00) @db.Decimal(12, 2)
+  status                 purchase_invoices_status? @default(UNPAID)
+  created_at             DateTime?                 @default(now()) @db.DateTime(0)
+  purchase_invoice_items purchase_invoice_items[]
+  suppliers              suppliers                 @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "purchase_invoices_ibfk_1")
+
+  @@index([supplier_id], map: "idx_purchase_supplier")
+}
+
+model supplier_ledger {
+  id          BigInt                   @id @default(autoincrement())
+  tenant_id   BigInt
+  supplier_id BigInt
+  ref_type    supplier_ledger_ref_type
+  ref_id      BigInt?
+  credit      Decimal?                 @default(0.00) @db.Decimal(12, 2)
+  debit       Decimal?                 @default(0.00) @db.Decimal(12, 2)
+  balance     Decimal                  @db.Decimal(12, 2)
+  created_at  DateTime?                @default(now()) @db.DateTime(0)
+
+  @@index([supplier_id, created_at], map: "idx_supplier_ledger")
+}
+
+model suppliers {
+  id                BigInt              @id @default(autoincrement())
+  tenant_id         BigInt
+  name              String              @db.VarChar(255)
+  phone             String?             @db.VarChar(20)
+  email             String?             @db.VarChar(255)
+  address           String?             @db.Text
+  is_active         Boolean?            @default(true)
+  created_at        DateTime?           @default(now()) @db.DateTime(0)
+  purchase_invoices purchase_invoices[]
+
+  @@unique([tenant_id, phone], map: "tenant_id")
+  @@index([tenant_id], map: "idx_supplier_tenant")
+}
+
 enum role_permissions_role {
   OWNER
   MANAGER
@@ -368,4 +426,16 @@ enum invoices_status {
 enum tenants_status {
   ACTIVE
   SUSPENDED
+}
+
+enum supplier_ledger_ref_type {
+  OPENING
+  PURCHASE
+  PAYMENT
+}
+
+enum purchase_invoices_status {
+  UNPAID
+  PARTIAL
+  PAID
 }
