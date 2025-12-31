@@ -19,6 +19,14 @@ router.use(authenticate);
 router.use(extractTenant);
 
 /**
+ * @route   GET /products/search
+ * @desc    Search products for billing screen (optimized)
+ * @access  PRODUCT_VIEW permission (OWNER, MANAGER, CASHIER)
+ * @query   q - Search query (min 2 chars)
+ */
+router.get('/search', hasPermission('PRODUCT_VIEW'), controller.searchForBilling);
+
+/**
  * @route   GET /products
  * @desc    Get all products
  * @access  PRODUCT_VIEW permission (OWNER, MANAGER, CASHIER)
