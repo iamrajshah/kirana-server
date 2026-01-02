@@ -161,24 +161,11 @@ export class ProductController {
    * Optimized for quick product lookup with inventory data
    */
   searchForBilling = asyncHandler(async (req: Request, res: Response): Promise<Response> => {
-    console.log('🎯 Controller reached - searchForBilling');
-    console.log('📋 Full request query object:', JSON.stringify(req.query, null, 2));
-
     const { tenantId } = req as TenantRequest;
     const searchQuery = (req.query.q as string) || '';
     const trimmedQuery = searchQuery.trim();
 
-    console.log('🔑 Query processing:', {
-      tenantId,
-      rawQuery: searchQuery,
-      rawLength: searchQuery.length,
-      trimmedQuery: trimmedQuery,
-      trimmedLength: trimmedQuery.length,
-      willPass: trimmedQuery.length >= 2,
-    });
-
     if (!trimmedQuery || trimmedQuery.length < 2) {
-      console.log('⚠️ Query validation failed - too short');
       return res.json({
         success: true,
         data: [],
@@ -186,10 +173,8 @@ export class ProductController {
       });
     }
 
-    console.log('✅ Query validated, calling service...');
     const results = await this.productService.searchForBilling(tenantId, trimmedQuery);
 
-    console.log('📤 Sending response:', { count: results.length });
     return res.json({
       success: true,
       data: results,

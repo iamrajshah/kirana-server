@@ -1,0 +1,4 @@
+sku,quantity,low_stock_threshold
+FOR-SUN-1L,100,10
+FOR-SUN-5L,20,2
+PAR-COC-500,50,5

@@ -1,0 +1,4 @@
+name,phone,email,opening_balance,is_active
+Ramesh Patel,9876543210,,5000,1
+Suresh Shah,9123456789,suresh@gmail.com,-1000,1
+Rajesh Shah,9623172772,raj@gmail.com,3000,1
