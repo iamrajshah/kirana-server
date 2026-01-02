@@ -2,8 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from './auth.middleware';
 import { UnauthorizedError } from '@utils/errors';
 
-export interface TenantRequest extends AuthRequest {
+export interface TenantRequest<P = any, B = any, Q = any> extends Request<P, any, B, Q> {
   tenantId: string;
+  tenant: { id: bigint };
 }
 
 /**
@@ -22,8 +23,9 @@ export const extractTenant = (req: Request, _res: Response, next: NextFunction):
       throw new UnauthorizedError('Tenant information missing from token');
     }
 
-    // Attach tenantId to request for easy access
+    // Attach tenantId and tenant object to request for easy access
     (req as TenantRequest).tenantId = authReq.user.tenantId;
+    (req as any).tenant = { id: BigInt(authReq.user.tenantId) };
 
     next();
   } catch (error) {

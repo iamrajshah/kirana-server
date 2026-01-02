@@ -26,6 +26,8 @@ export interface VariantResponse {
   size: string | null;
   packaging: string | null;
   price: number;
+  selling_price?: number;
+  mrp_price?: number;
   gst_percent: number | null;
   sku: string | null;
   is_active: boolean | null;
@@ -498,7 +500,6 @@ export class ProductService {
   private formatVariantResponse(variant: product_variants): VariantResponse {
     return {
       id: variant.id.toString(),
-      product_id: variant.product_id.toString(),
       brand: variant.brand,
       size: variant.size,
       packaging: variant.packaging,
