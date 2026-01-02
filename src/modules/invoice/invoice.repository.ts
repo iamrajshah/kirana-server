@@ -54,23 +54,6 @@ export class InvoiceRepository {
   }
 
   /**
-   * Create invoice items within a transaction
-   */
-  async createInvoiceItems(
-    items: Array<{
-      invoice_id: bigint;
-      variant_id: bigint;
-      quantity: number;
-      price: number;
-    }>,
-    tx: any
-  ): Promise<any[]> {
-    return tx.invoiceItem.createMany({
-      data: items,
-    });
-  }
-
-  /**
    * Get all invoices for a tenant
    */
   async findAllByTenant(
