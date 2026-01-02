@@ -7,26 +7,28 @@ const purchaseItemSchema = z.object({
 });
 
 export const createPurchaseSchema = z.object({
-  body: z.object({
-    supplier_id: z.number().positive('Supplier ID is required'),
-    invoice_number: z.string().max(100).optional(),
-    invoice_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)'),
-    items: z.array(purchaseItemSchema).min(1, 'At least one item is required'),
-    payment_amount: z.number().min(0, 'Payment amount cannot be negative').optional().default(0),
-    payment_mode: z.enum(['CASH', 'UPI', 'CARD', 'BANK']).optional(),
-  }).refine(
-    (data) => {
-      // If payment_amount > 0, payment_mode is required
-      if (data.payment_amount > 0 && !data.payment_mode) {
-        return false;
+  body: z
+    .object({
+      supplier_id: z.number().positive('Supplier ID is required'),
+      invoice_number: z.string().max(100).optional(),
+      invoice_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)'),
+      items: z.array(purchaseItemSchema).min(1, 'At least one item is required'),
+      payment_amount: z.number().min(0, 'Payment amount cannot be negative').optional().default(0),
+      payment_mode: z.enum(['CASH', 'UPI', 'CARD', 'BANK']).optional(),
+    })
+    .refine(
+      (data) => {
+        // If payment_amount > 0, payment_mode is required
+        if (data.payment_amount > 0 && !data.payment_mode) {
+          return false;
+        }
+        return true;
+      },
+      {
+        message: 'Payment mode is required when payment amount is provided',
+        path: ['payment_mode'],
       }
-      return true;
-    },
-    {
-      message: 'Payment mode is required when payment amount is provided',
-      path: ['payment_mode'],
-    }
-  ),
+    ),
 });
 
 export const getPurchaseByIdSchema = z.object({

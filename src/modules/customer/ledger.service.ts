@@ -100,7 +100,10 @@ export class LedgerService {
   /**
    * Get ledger summary (total debits, credits, balance)
    */
-  async getLedgerSummary(customerId: bigint, tenantId: bigint): Promise<{
+  async getLedgerSummary(
+    customerId: bigint,
+    tenantId: bigint
+  ): Promise<{
     totalDebit: number;
     totalCredit: number;
     balance: number;

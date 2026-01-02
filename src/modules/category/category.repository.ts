@@ -102,11 +102,7 @@ export class CategoryRepository {
   /**
    * Update category status
    */
-  async updateStatus(
-    id: bigint,
-    tenant_id: bigint,
-    is_active: boolean
-  ): Promise<categories> {
+  async updateStatus(id: bigint, tenant_id: bigint, is_active: boolean): Promise<categories> {
     return prisma.categories.update({
       where: {
         id,

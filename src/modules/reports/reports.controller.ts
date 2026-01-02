@@ -69,11 +69,7 @@ export class ReportsController {
     const tenant_id = BigInt(tenantId);
     const { from, to } = req.query;
 
-    const report = await this.reportsService.getProfitLoss(
-      tenant_id,
-      from as string,
-      to as string
-    );
+    const report = await this.reportsService.getProfitLoss(tenant_id, from as string, to as string);
 
     res.json({
       success: true,
@@ -105,7 +101,12 @@ export class ReportsController {
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
     const minAmount = req.query.minAmount ? parseFloat(req.query.minAmount as string) : undefined;
 
-    const report = await this.reportsService.getSupplierOutstanding(tenant_id, page, limit, minAmount);
+    const report = await this.reportsService.getSupplierOutstanding(
+      tenant_id,
+      page,
+      limit,
+      minAmount
+    );
 
     res.json({
       success: true,

@@ -82,7 +82,7 @@ export class AuthService {
     // Generate tokens
     const tokens = await this.generateTokens(user, tenant, [role]);
 
-    return this.formatAuthResponse(user, tenant, [role], tokens,true);
+    return this.formatAuthResponse(user, tenant, [role], tokens, true);
   }
 
   /**
@@ -182,7 +182,7 @@ export class AuthService {
     roles: roles[]
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const roleNames = roles.map((r) => r.name as string);
-    
+
     // Load permissions from database for the user's roles
     const permissions = await this.repository.getPermissionsForRoles(roleNames);
 

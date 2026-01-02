@@ -45,7 +45,7 @@ export const errorHandler = (
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     let message = 'Database error';
     let statusCode = 500;
-    const prismaErr = err as Prisma.PrismaClientKnownRequestError;
+    const prismaErr = err;
 
     switch (prismaErr.code) {
       case 'P2002':
@@ -78,13 +78,13 @@ export const errorHandler = (
       message: err.message,
       stack: err.stack,
     });
-    
+
     res.status(500).json({
       success: false,
       message: 'Data serialization error. Please contact support.',
-      ...(config.env === 'development' && { 
+      ...(config.env === 'development' && {
         detail: 'BigInt fields must be converted to string/number before JSON serialization',
-        stack: err.stack 
+        stack: err.stack,
       }),
     });
     return;

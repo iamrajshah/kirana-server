@@ -22,13 +22,7 @@ export class SupplierController {
     const ip = (req.ip || req.connection?.remoteAddress)?.toString();
     const userAgent = req.headers['user-agent'];
 
-    const supplier = await this.service.createSupplier(
-      tenantId,
-      userId,
-      req.body,
-      ip,
-      userAgent
-    );
+    const supplier = await this.service.createSupplier(tenantId, userId, req.body, ip, userAgent);
 
     res.status(201).json({
       success: true,
@@ -47,7 +41,8 @@ export class SupplierController {
 
     const page = parseInt((req.query.page as string) || '1');
     const limit = parseInt((req.query.limit as string) || '20');
-    const isActive = req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined;
+    const isActive =
+      req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined;
 
     const result = await this.service.getSuppliers(tenantId, {
       page,

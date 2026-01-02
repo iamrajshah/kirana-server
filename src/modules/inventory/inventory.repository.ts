@@ -51,10 +51,7 @@ export class InventoryRepository {
             },
           },
         },
-        orderBy: [
-          { quantity: 'asc' },
-          { low_stock_threshold: 'desc' }
-        ],
+        orderBy: [{ quantity: 'asc' }, { low_stock_threshold: 'desc' }],
       }),
       prisma.inventory.count({ where }),
     ]);
@@ -120,9 +117,14 @@ export class InventoryRepository {
    * Must be called within a transaction
    * Uses optimistic locking with version to prevent race conditions
    */
-  async reduceQuantity(variant_id: bigint, tenant_id: bigint, quantity: number, tx?: any): Promise<Inventory> {
+  async reduceQuantity(
+    variant_id: bigint,
+    tenant_id: bigint,
+    quantity: number,
+    tx?: any
+  ): Promise<Inventory> {
     const db = tx || prisma;
-    
+
     // Get current inventory with version for optimistic locking
     const current = await db.inventory.findUnique({
       where: {
@@ -177,9 +179,14 @@ export class InventoryRepository {
    * Must be called within a transaction
    * Uses optimistic locking with version to prevent race conditions
    */
-  async increaseQuantity(variant_id: bigint, tenant_id: bigint, quantity: number, tx?: any): Promise<Inventory> {
+  async increaseQuantity(
+    variant_id: bigint,
+    tenant_id: bigint,
+    quantity: number,
+    tx?: any
+  ): Promise<Inventory> {
     const db = tx || prisma;
-    
+
     // Get current inventory with version for optimistic locking
     const current = await db.inventory.findUnique({
       where: {

@@ -39,13 +39,10 @@ export class CategoryService {
     });
 
     // Audit log
-    AuditLogger.create(
-      tenantIdBigInt,
-      BigInt(_createdBy),
-      'category',
-      category.id,
-      { name: category.name, is_active: category.is_active }
-    );
+    AuditLogger.create(tenantIdBigInt, BigInt(_createdBy), 'category', category.id, {
+      name: category.name,
+      is_active: category.is_active,
+    });
 
     return this.formatCategoryResponse(category);
   }
@@ -122,13 +119,9 @@ export class CategoryService {
       }
     }
 
-    const updatedCategory = await this.repository.updateCategory(
-      categoryIdBigInt,
-      tenantIdBigInt,
-      {
-        name: data.name,
-      }
-    );
+    const updatedCategory = await this.repository.updateCategory(categoryIdBigInt, tenantIdBigInt, {
+      name: data.name,
+    });
 
     // Audit log (only if userId is available)
     if (userId) {

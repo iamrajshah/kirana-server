@@ -22,9 +22,9 @@ export class InvoiceService {
   async createInvoice(
     tenant_id: bigint,
     customer_id: bigint,
-    items: Array<{ 
-      variant_id: string; 
-      quantity: number; 
+    items: Array<{
+      variant_id: string;
+      quantity: number;
       price?: number; // Optional price override
       discount_amount?: number; // Item-level discount
     }>,
@@ -63,233 +63,231 @@ export class InvoiceService {
     }
 
     // Use Prisma transaction for atomicity with increased timeout for complex operations
-    const invoice = await prisma.$transaction(async (tx) => {
-      let subtotal = 0;
-      let totalItemDiscount = 0;
-      const validatedItems: Array<{
-        variant_id: bigint;
-        variant: any;
-        quantity: number;
-        unit_price: number; // Original or overridden price
-        discount_amount: number;
-        final_price: number;
-      }> = [];
+    const invoice = await prisma.$transaction(
+      async (tx) => {
+        let subtotal = 0;
+        let totalItemDiscount = 0;
+        const validatedItems: Array<{
+          variant_id: bigint;
+          variant: any;
+          quantity: number;
+          unit_price: number; // Original or overridden price
+          discount_amount: number;
+          final_price: number;
+        }> = [];
 
-      // Step 1: Validate all variants, calculate prices, and check inventory
-      for (const item of items) {
-        const variant_id = BigInt(item.variant_id);
+        // Step 1: Validate all variants, calculate prices, and check inventory
+        for (const item of items) {
+          const variant_id = BigInt(item.variant_id);
 
-        // Validate variant exists and is active
-        const variant = await tx.product_variants.findFirst({
-          where: {
-            id: variant_id,
-            is_active: true,
-          },
-          include: {
-            products: true,
-          },
-        });
-
-        if (!variant) {
-          throw new NotFoundError(`Variant ${item.variant_id} not found or inactive`);
-        }
-
-        if (!variant.products || !variant.products.is_active) {
-          throw new BadRequestError(
-            `Product "${variant.products?.name}" is inactive and cannot be billed`
-          );
-        }
-
-        // Check if variant belongs to tenant
-        if (variant.products.tenant_id.toString() !== tenant_id.toString()) {
-          throw new BadRequestError(`Variant ${item.variant_id} does not belong to your tenant`);
-        }
-
-        // Determine the unit price (override or default selling_price)
-        const unit_price = item.price !== undefined 
-          ? item.price 
-          : Number(variant.selling_price || variant.price || 0);
-
-        if (unit_price <= 0) {
-          throw new BadRequestError(
-            `Invalid price for variant ${item.variant_id} (SKU: ${variant.sku})`
-          );
-        }
-
-        const item_discount = item.discount_amount || 0;
-        const line_total = unit_price * item.quantity;
-        const final_price = Math.max(0, line_total - item_discount);
-
-        subtotal += line_total;
-        totalItemDiscount += item_discount;
-
-        validatedItems.push({
-          variant_id,
-          variant,
-          quantity: item.quantity,
-          unit_price,
-          discount_amount: item_discount,
-          final_price,
-        });
-
-        // Check inventory only for FINALIZED invoices (not for DRAFT)
-        if (status === 'FINALIZED') {
-          const inventory = await tx.inventory.findFirst({
+          // Validate variant exists and is active
+          const variant = await tx.product_variants.findFirst({
             where: {
-              variant_id,
-              tenant_id,
+              id: variant_id,
+              is_active: true,
+            },
+            include: {
+              products: true,
             },
           });
 
-          if (!inventory) {
+          if (!variant) {
+            throw new NotFoundError(`Variant ${item.variant_id} not found or inactive`);
+          }
+
+          if (!variant.products || !variant.products.is_active) {
             throw new BadRequestError(
-              `No inventory found for variant ${item.variant_id} (SKU: ${variant.sku})`
+              `Product "${variant.products?.name}" is inactive and cannot be billed`
             );
           }
 
-          const currentQuantity = inventory.quantity ?? 0;
-          if (currentQuantity < item.quantity) {
+          // Check if variant belongs to tenant
+          if (variant.products.tenant_id.toString() !== tenant_id.toString()) {
+            throw new BadRequestError(`Variant ${item.variant_id} does not belong to your tenant`);
+          }
+
+          // Determine the unit price (override or default selling_price)
+          const unit_price =
+            item.price !== undefined
+              ? item.price
+              : Number(variant.selling_price || variant.price || 0);
+
+          if (unit_price <= 0) {
             throw new BadRequestError(
-              `Insufficient inventory for variant ${item.variant_id} (SKU: ${variant.sku}). Available: ${currentQuantity}, Required: ${item.quantity}`
+              `Invalid price for variant ${item.variant_id} (SKU: ${variant.sku})`
             );
           }
-        }
-      }
 
-      // Step 2: Calculate totals
-      const subtotal_amount = subtotal;
-      const total_discount = totalItemDiscount + discount_amount;
-      const amount_after_discount = Math.max(0, subtotal - total_discount);
-      const total_amount = amount_after_discount + gst_amount;
+          const item_discount = item.discount_amount || 0;
+          const line_total = unit_price * item.quantity;
+          const final_price = Math.max(0, line_total - item_discount);
 
-      // Step 3: Generate invoice number
-      const invoice_number = await this.invoiceRepository.generateInvoiceNumber(tenant_id);
+          subtotal += line_total;
+          totalItemDiscount += item_discount;
 
-      // Step 4: Determine invoice status
-      let invoice_status: 'DRAFT' | 'FINALIZED' | 'UNPAID' | 'PARTIAL' | 'PAID' = status;
-      const finalized_at = status === 'FINALIZED' ? new Date() : null;
-
-      // If FINALIZED, set as UNPAID (payment will update status)
-      if (status === 'FINALIZED') {
-        invoice_status = 'UNPAID';
-      }
-
-      // Step 5: Create invoice with all calculated fields
-      const invoice = await tx.invoice.create({
-        data: {
-          tenant_id,
-          customer_id,
-          invoice_number,
-          subtotal_amount,
-          discount_amount: total_discount,
-          gst_amount,
-          total_amount,
-          paid_amount: 0,
-          status: invoice_status,
-          invoice_url,
-          idempotency_key,
-          finalized_at,
-        },
-      });
-
-      // Step 6: Create invoice items with snapshots
-      for (const item of validatedItems) {
-        await tx.invoiceItem.create({
-          data: {
-            invoice_id: invoice.id,
-            variant_id: item.variant_id,
+          validatedItems.push({
+            variant_id,
+            variant,
             quantity: item.quantity,
-            unit_price: item.unit_price, // Price per unit (original or overridden)
-            price: item.unit_price * item.quantity, // Total line price before discount
-            discount_amount: item.discount_amount,
-            final_price: item.final_price, // Final price after discount
-          },
-        });
-      }
+            unit_price,
+            discount_amount: item_discount,
+            final_price,
+          });
 
-      // Step 7: For FINALIZED invoices, reduce inventory and update customer balance
-      if (status === 'FINALIZED') {
-        // Reduce inventory quantities with optimistic locking
-        for (const item of validatedItems) {
-          await this.inventoryRepository.reduceQuantity(
-            item.variant_id,
-            tenant_id,
-            item.quantity,
-            tx
-          );
+          // Check inventory only for FINALIZED invoices (not for DRAFT)
+          if (status === 'FINALIZED') {
+            const inventory = await tx.inventory.findFirst({
+              where: {
+                variant_id,
+                tenant_id,
+              },
+            });
+
+            if (!inventory) {
+              throw new BadRequestError(
+                `No inventory found for variant ${item.variant_id} (SKU: ${variant.sku})`
+              );
+            }
+
+            const currentQuantity = inventory.quantity ?? 0;
+            if (currentQuantity < item.quantity) {
+              throw new BadRequestError(
+                `Insufficient inventory for variant ${item.variant_id} (SKU: ${variant.sku}). Available: ${currentQuantity}, Required: ${item.quantity}`
+              );
+            }
+          }
         }
 
-        // Create ledger entry
-        await tx.customer_ledger.create({
+        // Step 2: Calculate totals
+        const subtotal_amount = subtotal;
+        const total_discount = totalItemDiscount + discount_amount;
+        const amount_after_discount = Math.max(0, subtotal - total_discount);
+        const total_amount = amount_after_discount + gst_amount;
+
+        // Step 3: Generate invoice number
+        const invoice_number = await this.invoiceRepository.generateInvoiceNumber(tenant_id);
+
+        // Step 4: Determine invoice status
+        let invoice_status: 'DRAFT' | 'FINALIZED' | 'UNPAID' | 'PARTIAL' | 'PAID' = status;
+        const finalized_at = status === 'FINALIZED' ? new Date() : null;
+
+        // If FINALIZED, set as UNPAID (payment will update status)
+        if (status === 'FINALIZED') {
+          invoice_status = 'UNPAID';
+        }
+
+        // Step 5: Create invoice with all calculated fields
+        const invoice = await tx.invoice.create({
           data: {
+            tenant_id,
             customer_id,
-            tenant_id,
-            entry_type: 'INVOICE',
-            amount: total_amount,
-            reference_id: invoice.id,
-            description: `Invoice ${invoice_number}`,
-            created_by,
+            invoice_number,
+            subtotal_amount,
+            discount_amount: total_discount,
+            gst_amount,
+            total_amount,
+            paid_amount: 0,
+            status: invoice_status,
+            invoice_url,
+            idempotency_key,
+            finalized_at,
           },
         });
 
-        // Update customer balance with optimistic locking
-        const currentCustomer = await tx.customer.findUnique({
-          where: { id: customer_id },
-        });
-
-        if (!currentCustomer) {
-          throw new NotFoundError('Customer not found');
+        // Step 6: Create invoice items with snapshots
+        for (const item of validatedItems) {
+          await tx.invoiceItem.create({
+            data: {
+              invoice_id: invoice.id,
+              variant_id: item.variant_id,
+              quantity: item.quantity,
+              unit_price: item.unit_price, // Price per unit (original or overridden)
+              price: item.unit_price * item.quantity, // Total line price before discount
+              discount_amount: item.discount_amount,
+              final_price: item.final_price, // Final price after discount
+            },
+          });
         }
 
-        const customerVersion = currentCustomer.version;
+        // Step 7: For FINALIZED invoices, reduce inventory and update customer balance
+        if (status === 'FINALIZED') {
+          // Reduce inventory quantities with optimistic locking
+          for (const item of validatedItems) {
+            await this.inventoryRepository.reduceQuantity(
+              item.variant_id,
+              tenant_id,
+              item.quantity,
+              tx
+            );
+          }
 
-        const updatedCustomer = await tx.customer.updateMany({
-          where: {
-            id: customer_id,
-            version: customerVersion,
-          },
-          data: {
-            credit_balance: {
-              increment: total_amount,
+          // Create ledger entry
+          await tx.customer_ledger.create({
+            data: {
+              customer_id,
+              tenant_id,
+              entry_type: 'INVOICE',
+              amount: total_amount,
+              reference_id: invoice.id,
+              description: `Invoice ${invoice_number}`,
+              created_by,
             },
-            version: {
-              increment: 1,
-            },
-          },
-        });
+          });
 
-        if (updatedCustomer.count === 0) {
-          throw new Error(
-            'Customer balance update failed due to concurrent modification. Please retry the operation.'
-          );
+          // Update customer balance with optimistic locking
+          const currentCustomer = await tx.customer.findUnique({
+            where: { id: customer_id },
+          });
+
+          if (!currentCustomer) {
+            throw new NotFoundError('Customer not found');
+          }
+
+          const customerVersion = currentCustomer.version;
+
+          const updatedCustomer = await tx.customer.updateMany({
+            where: {
+              id: customer_id,
+              version: customerVersion,
+            },
+            data: {
+              credit_balance: {
+                increment: total_amount,
+              },
+              version: {
+                increment: 1,
+              },
+            },
+          });
+
+          if (updatedCustomer.count === 0) {
+            throw new Error(
+              'Customer balance update failed due to concurrent modification. Please retry the operation.'
+            );
+          }
         }
-      }
 
-      return invoice;
-    }, {
-      maxWait: 10000,
-      timeout: 30000,
-    });
-
-    // Audit log
-    AuditLogger.create(
-      tenant_id,
-      created_by,
-      'invoice',
-      invoice.id,
+        return invoice;
+      },
       {
-        action: 'create',
-        invoice_number: invoice.invoice_number,
-        customer_id: customer_id.toString(),
-        status: invoice.status,
-        subtotal_amount: Number(invoice.subtotal_amount),
-        discount_amount: Number(invoice.discount_amount),
-        total_amount: Number(invoice.total_amount),
-        gst_amount,
-        items_count: items.length,
-        idempotency_key: idempotency_key || null,
+        maxWait: 10000,
+        timeout: 30000,
       }
     );
+
+    // Audit log
+    AuditLogger.create(tenant_id, created_by, 'invoice', invoice.id, {
+      action: 'create',
+      invoice_number: invoice.invoice_number,
+      customer_id: customer_id.toString(),
+      status: invoice.status,
+      subtotal_amount: Number(invoice.subtotal_amount),
+      discount_amount: Number(invoice.discount_amount),
+      total_amount: Number(invoice.total_amount),
+      gst_amount,
+      items_count: items.length,
+      idempotency_key: idempotency_key || null,
+    });
 
     // Fetch the created invoice with all details
     return this.getInvoiceById(invoice.id, tenant_id);
@@ -304,10 +302,10 @@ export class InvoiceService {
     tenant_id: bigint,
     updateData: {
       customer_id?: string;
-      items?: Array<{ 
-        variant_id: string; 
-        quantity: number; 
-        price?: number; 
+      items?: Array<{
+        variant_id: string;
+        quantity: number;
+        price?: number;
         discount_amount?: number;
       }>;
       gst_amount?: number;
@@ -333,7 +331,9 @@ export class InvoiceService {
 
     // Only DRAFT invoices can be updated
     if (existingInvoice.status !== 'DRAFT') {
-      throw new BadRequestError(`Cannot update invoice in ${existingInvoice.status} status. Only DRAFT invoices can be updated.`);
+      throw new BadRequestError(
+        `Cannot update invoice in ${existingInvoice.status} status. Only DRAFT invoices can be updated.`
+      );
     }
 
     // Use transaction for atomicity
@@ -372,9 +372,10 @@ export class InvoiceService {
             throw new BadRequestError(`Product "${variant.products?.name}" is inactive`);
           }
 
-          const unit_price = item.price !== undefined 
-            ? item.price 
-            : Number(variant.selling_price || variant.price || 0);
+          const unit_price =
+            item.price !== undefined
+              ? item.price
+              : Number(variant.selling_price || variant.price || 0);
 
           const item_discount = item.discount_amount || 0;
           const line_total = unit_price * item.quantity;
@@ -406,8 +407,14 @@ export class InvoiceService {
       }
 
       // Calculate new totals
-      const gst = updateData.gst_amount !== undefined ? updateData.gst_amount : Number(existingInvoice.gst_amount);
-      const billDiscount = updateData.discount_amount !== undefined ? updateData.discount_amount : Number(existingInvoice.discount_amount);
+      const gst =
+        updateData.gst_amount !== undefined
+          ? updateData.gst_amount
+          : Number(existingInvoice.gst_amount);
+      const billDiscount =
+        updateData.discount_amount !== undefined
+          ? updateData.discount_amount
+          : Number(existingInvoice.discount_amount);
       const total_discount = totalItemDiscount + billDiscount;
       const amount_after_discount = Math.max(0, subtotal - total_discount);
       const total_amount = amount_after_discount + gst;
@@ -431,17 +438,11 @@ export class InvoiceService {
     });
 
     // Audit log
-    AuditLogger.create(
-      tenant_id,
-      updated_by,
-      'invoice',
-      invoice_id,
-      {
-        action: 'update',
-        invoice_number: existingInvoice.invoice_number,
-        changes: updateData,
-      }
-    );
+    AuditLogger.create(tenant_id, updated_by, 'invoice', invoice_id, {
+      action: 'update',
+      invoice_number: existingInvoice.invoice_number,
+      changes: updateData,
+    });
 
     return this.getInvoiceById(invoice_id, tenant_id);
   }
@@ -474,7 +475,9 @@ export class InvoiceService {
     }
 
     if (invoice.status !== 'DRAFT') {
-      throw new BadRequestError(`Cannot finalize invoice in ${invoice.status} status. Only DRAFT invoices can be finalized.`);
+      throw new BadRequestError(
+        `Cannot finalize invoice in ${invoice.status} status. Only DRAFT invoices can be finalized.`
+      );
     }
 
     // Use transaction
@@ -556,7 +559,9 @@ export class InvoiceService {
       });
 
       if (updatedCustomer.count === 0) {
-        throw new Error('Customer balance update failed due to concurrent modification. Please retry.');
+        throw new Error(
+          'Customer balance update failed due to concurrent modification. Please retry.'
+        );
       }
 
       // Update invoice status
@@ -574,17 +579,11 @@ export class InvoiceService {
     });
 
     // Audit log
-    AuditLogger.create(
-      tenant_id,
-      finalized_by,
-      'invoice',
-      invoice_id,
-      {
-        action: 'finalize',
-        invoice_number: invoice.invoice_number,
-        total_amount: Number(invoice.total_amount),
-      }
-    );
+    AuditLogger.create(tenant_id, finalized_by, 'invoice', invoice_id, {
+      action: 'finalize',
+      invoice_number: invoice.invoice_number,
+      total_amount: Number(invoice.total_amount),
+    });
 
     return this.getInvoiceById(invoice_id, tenant_id);
   }
@@ -594,7 +593,12 @@ export class InvoiceService {
    * Can cancel DRAFT, UNPAID, or PARTIAL invoices
    * Restores inventory and reverses customer balance for finalized invoices
    */
-  async cancelInvoice(invoice_id: bigint, tenant_id: bigint, cancelled_by: bigint, reason?: string) {
+  async cancelInvoice(
+    invoice_id: bigint,
+    tenant_id: bigint,
+    cancelled_by: bigint,
+    reason?: string
+  ) {
     const invoice = await prisma.invoice.findFirst({
       where: {
         id: invoice_id,
@@ -614,7 +618,8 @@ export class InvoiceService {
       throw new BadRequestError(`Cannot cancel invoice in ${invoice.status} status.`);
     }
 
-    const wasFinalizedOrPartial = invoice.status === 'UNPAID' || invoice.status === 'PARTIAL' || invoice.status === 'FINALIZED';
+    const wasFinalizedOrPartial =
+      invoice.status === 'UNPAID' || invoice.status === 'PARTIAL' || invoice.status === 'FINALIZED';
 
     // Use transaction
     await prisma.$transaction(async (tx) => {
@@ -671,7 +676,9 @@ export class InvoiceService {
         });
 
         if (updatedCustomer.count === 0) {
-          throw new Error('Customer balance update failed due to concurrent modification. Please retry.');
+          throw new Error(
+            'Customer balance update failed due to concurrent modification. Please retry.'
+          );
         }
       }
 
@@ -690,18 +697,12 @@ export class InvoiceService {
     });
 
     // Audit log
-    AuditLogger.create(
-      tenant_id,
-      cancelled_by,
-      'invoice',
-      invoice_id,
-      {
-        action: 'cancel',
-        invoice_number: invoice.invoice_number,
-        reason: reason || 'No reason provided',
-        previous_status: invoice.status,
-      }
-    );
+    AuditLogger.create(tenant_id, cancelled_by, 'invoice', invoice_id, {
+      action: 'cancel',
+      invoice_number: invoice.invoice_number,
+      reason: reason || 'No reason provided',
+      previous_status: invoice.status,
+    });
 
     return this.getInvoiceById(invoice_id, tenant_id);
   }
@@ -748,7 +749,11 @@ export class InvoiceService {
       take?: number;
     }
   ) {
-    const { invoices, total } = await this.invoiceRepository.findByCustomerId(customer_id, tenant_id, options);
+    const { invoices, total } = await this.invoiceRepository.findByCustomerId(
+      customer_id,
+      tenant_id,
+      options
+    );
 
     return {
       invoices: invoices.map((invoice) => this.formatInvoiceResponse(invoice)),

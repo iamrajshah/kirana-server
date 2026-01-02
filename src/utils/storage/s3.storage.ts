@@ -3,7 +3,7 @@ import { Readable } from 'stream';
 
 /**
  * S3-compatible storage implementation (S3, MinIO, etc.)
- * 
+ *
  * To use this storage:
  * 1. Install AWS SDK: npm install @aws-sdk/client-s3 @aws-sdk/lib-storage
  * 2. Add environment variables:
@@ -22,8 +22,8 @@ export class S3FileStorage implements IFileStorage {
   constructor() {
     throw new Error(
       'S3FileStorage not implemented yet. ' +
-      'Install @aws-sdk/client-s3 and configure environment variables. ' +
-      'See src/utils/storage/s3.storage.ts for details.'
+        'Install @aws-sdk/client-s3 and configure environment variables. ' +
+        'See src/utils/storage/s3.storage.ts for details.'
     );
 
     // Example implementation:
@@ -46,7 +46,7 @@ export class S3FileStorage implements IFileStorage {
 
   async upload(_options: UploadOptions): Promise<FileMetadata> {
     throw new Error('Not implemented');
-    
+
     /* Example implementation:
     const timestamp = Date.now();
     const random = Math.round(Math.random() * 1e9);
@@ -84,7 +84,7 @@ export class S3FileStorage implements IFileStorage {
 
   async getStream(_key: string): Promise<Readable> {
     throw new Error('Not implemented');
-    
+
     /* Example implementation:
     const response = await this.s3Client.send(
       new GetObjectCommand({ Bucket: this.bucket, Key: key })
@@ -95,7 +95,7 @@ export class S3FileStorage implements IFileStorage {
 
   async getBuffer(_key: string): Promise<Buffer> {
     throw new Error('Not implemented');
-    
+
     /* Example implementation:
     const stream = await this.getStream(key);
     const chunks: Buffer[] = [];
@@ -110,7 +110,7 @@ export class S3FileStorage implements IFileStorage {
 
   async delete(_key: string): Promise<void> {
     throw new Error('Not implemented');
-    
+
     /* Example implementation:
     await this.s3Client.send(
       new DeleteObjectCommand({ Bucket: this.bucket, Key: key })
@@ -120,7 +120,7 @@ export class S3FileStorage implements IFileStorage {
 
   async exists(_key: string): Promise<boolean> {
     throw new Error('Not implemented');
-    
+
     /* Example implementation:
     try {
       await this.s3Client.send(
@@ -135,7 +135,7 @@ export class S3FileStorage implements IFileStorage {
 
   async getMetadata(_key: string): Promise<FileMetadata | null> {
     throw new Error('Not implemented');
-    
+
     /* Example implementation:
     try {
       const result = await this.s3Client.send(

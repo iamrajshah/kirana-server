@@ -22,7 +22,12 @@ router.use(authenticate);
  * @desc    Create supplier
  * @access  OWNER, MANAGER (SUPPLIER_CREATE permission)
  */
-router.post('/', hasPermission('SUPPLIER_CREATE'), validate(createSupplierSchema), controller.create);
+router.post(
+  '/',
+  hasPermission('SUPPLIER_CREATE'),
+  validate(createSupplierSchema),
+  controller.create
+);
 
 /**
  * @route   GET /suppliers
@@ -36,14 +41,24 @@ router.get('/', hasPermission('SUPPLIER_VIEW'), controller.getAll);
  * @desc    Get supplier by ID with balance
  * @access  OWNER, MANAGER, CASHIER (SUPPLIER_VIEW permission)
  */
-router.get('/:id', hasPermission('SUPPLIER_VIEW'), validate(getSupplierByIdSchema), controller.getById);
+router.get(
+  '/:id',
+  hasPermission('SUPPLIER_VIEW'),
+  validate(getSupplierByIdSchema),
+  controller.getById
+);
 
 /**
  * @route   PATCH /suppliers/:id
  * @desc    Update supplier
  * @access  OWNER, MANAGER (SUPPLIER_UPDATE permission)
  */
-router.patch('/:id', hasPermission('SUPPLIER_UPDATE'), validate(updateSupplierSchema), controller.update);
+router.patch(
+  '/:id',
+  hasPermission('SUPPLIER_UPDATE'),
+  validate(updateSupplierSchema),
+  controller.update
+);
 
 /**
  * @route   POST /suppliers/:id/opening-balance
@@ -62,13 +77,23 @@ router.post(
  * @desc    Get supplier ledger entries
  * @access  OWNER, MANAGER, CASHIER (SUPPLIER_VIEW permission)
  */
-router.get('/:id/ledger', hasPermission('SUPPLIER_VIEW'), validate(getSupplierLedgerSchema), controller.getLedger);
+router.get(
+  '/:id/ledger',
+  hasPermission('SUPPLIER_VIEW'),
+  validate(getSupplierLedgerSchema),
+  controller.getLedger
+);
 
 /**
  * @route   POST /suppliers/:id/payments
  * @desc    Make payment to supplier
  * @access  OWNER, MANAGER (SUPPLIER_MANAGE permission)
  */
-router.post('/:id/payments', hasPermission('SUPPLIER_MANAGE'), validate(makePaymentSchema), controller.makePayment);
+router.post(
+  '/:id/payments',
+  hasPermission('SUPPLIER_MANAGE'),
+  validate(makePaymentSchema),
+  controller.makePayment
+);
 
 export default router;

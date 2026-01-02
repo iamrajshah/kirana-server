@@ -138,8 +138,7 @@ export class ReportsRepository {
     ).length;
     const outOfStockItems = inventory.filter((item) => (item.quantity ?? 0) === 0).length;
     const totalValue = inventory.reduce(
-      (sum, item) =>
-        sum + (item.quantity ?? 0) * Number(item.product_variants?.price || 0),
+      (sum, item) => sum + (item.quantity ?? 0) * Number(item.product_variants?.price || 0),
       0
     );
 
@@ -182,7 +181,9 @@ export class ReportsRepository {
    * Get daily cashbook - payment collections by mode
    */
   async getDailyCashbook(tenant_id: bigint, date?: Date): Promise<any[]> {
-    const startDate = date ? new Date(date.setHours(0, 0, 0, 0)) : new Date(new Date().setHours(0, 0, 0, 0));
+    const startDate = date
+      ? new Date(date.setHours(0, 0, 0, 0))
+      : new Date(new Date().setHours(0, 0, 0, 0));
     const endDate = new Date(startDate);
     endDate.setDate(endDate.getDate() + 1);
 
@@ -260,7 +261,10 @@ export class ReportsRepository {
     const revenue = invoices.reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
     const gstCollected = invoices.reduce((sum, inv) => sum + Number(inv.gst_amount || 0), 0);
     const totalPayments = payments.reduce((sum, pay) => sum + Number(pay.amount || 0), 0);
-    const outstandingAmount = customers.reduce((sum, cust) => sum + Number(cust.credit_balance || 0), 0);
+    const outstandingAmount = customers.reduce(
+      (sum, cust) => sum + Number(cust.credit_balance || 0),
+      0
+    );
 
     return {
       revenue,
@@ -543,10 +547,7 @@ export class ReportsRepository {
    * Get top payables - suppliers we owe the most
    * Optimized query with limit for performance
    */
-  async getTopPayables(
-    tenant_id: bigint,
-    limit: number = 10
-  ): Promise<any[]> {
+  async getTopPayables(tenant_id: bigint, limit: number = 10): Promise<any[]> {
     return prisma.$queryRaw<any[]>`
       SELECT 
         s.id,
@@ -573,10 +574,7 @@ export class ReportsRepository {
    * Get purchase summary by month
    * For trend analysis
    */
-  async getPurchaseTrendByMonth(
-    tenant_id: bigint,
-    months: number = 12
-  ): Promise<any[]> {
+  async getPurchaseTrendByMonth(tenant_id: bigint, months: number = 12): Promise<any[]> {
     return prisma.$queryRaw<any[]>`
       SELECT 
         DATE_FORMAT(invoice_date, '%Y-%m') as month,
@@ -651,4 +649,3 @@ export class ReportsRepository {
     };
   }
 }
-

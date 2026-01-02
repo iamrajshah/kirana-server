@@ -184,15 +184,7 @@ export class PurchaseService {
       return purchase;
     });
 
-    AuditLogger.create(
-      tenantId,
-      userId,
-      'PURCHASE',
-      result.id,
-      result,
-      ip,
-      userAgent
-    );
+    AuditLogger.create(tenantId, userId, 'PURCHASE', result.id, result, ip, userAgent);
 
     return this.formatPurchaseResponse(result);
   }
@@ -253,7 +245,7 @@ export class PurchaseService {
         items: purchase.purchase_invoice_items.map((item: any) => {
           const variant = item.product_variants;
           const product = item.products || variant?.products;
-          
+
           return {
             id: item.id.toString(),
             variant_id: item.variant_id?.toString() || '',

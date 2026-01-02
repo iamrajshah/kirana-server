@@ -55,21 +55,23 @@ export const getUserByIdSchema = z.object({
  * Update Own Profile Schema
  */
 export const updateOwnProfileSchema = z.object({
-  body: z.object({
-    name: z.string().min(1, 'Name cannot be empty').max(100).optional(),
-    phone: z
-      .string()
-      .min(10, 'Phone number must be at least 10 digits')
-      .max(15)
-      .regex(/^\+?[1-9]\d{9,14}$/, 'Invalid phone number format')
-      .optional(),
-    email: z.string().email('Invalid email format').max(100).optional(),
-  }).refine(
-    (data) => data.name !== undefined || data.phone !== undefined || data.email !== undefined,
-    {
-      message: 'At least one field (name, phone, or email) must be provided',
-    }
-  ),
+  body: z
+    .object({
+      name: z.string().min(1, 'Name cannot be empty').max(100).optional(),
+      phone: z
+        .string()
+        .min(10, 'Phone number must be at least 10 digits')
+        .max(15)
+        .regex(/^\+?[1-9]\d{9,14}$/, 'Invalid phone number format')
+        .optional(),
+      email: z.string().email('Invalid email format').max(100).optional(),
+    })
+    .refine(
+      (data) => data.name !== undefined || data.phone !== undefined || data.email !== undefined,
+      {
+        message: 'At least one field (name, phone, or email) must be provided',
+      }
+    ),
 });
 
 /**

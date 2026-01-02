@@ -114,7 +114,7 @@ export class ImportService {
     autoCreateCategories: boolean
   ): Promise<void> {
     const storage = getFileStorage();
-    
+
     try {
       // Update status to PROCESSING
       await this.repository.updateJob(jobId, { status: 'PROCESSING' });
@@ -237,10 +237,7 @@ export class ImportService {
   /**
    * Validate customer row
    */
-  private async validateCustomerRow(
-    data: any,
-    tenantId: bigint
-  ): Promise<string | null> {
+  private async validateCustomerRow(data: any, tenantId: bigint): Promise<string | null> {
     // Required fields
     if (!data.name || !data.phone) {
       return 'Name and phone are required';
@@ -314,10 +311,7 @@ export class ImportService {
   /**
    * Validate inventory row
    */
-  private async validateInventoryRow(
-    data: any,
-    tenantId: bigint
-  ): Promise<string | null> {
+  private async validateInventoryRow(data: any, tenantId: bigint): Promise<string | null> {
     // Required fields
     if (!data.sku || !data.quantity) {
       return 'SKU and quantity are required';
@@ -335,10 +329,7 @@ export class ImportService {
     }
 
     // Validate low stock threshold if provided
-    if (
-      data.low_stock_threshold &&
-      isNaN(Number(data.low_stock_threshold))
-    ) {
+    if (data.low_stock_threshold && isNaN(Number(data.low_stock_threshold))) {
       return 'Low stock threshold must be a number';
     }
 
@@ -348,10 +339,7 @@ export class ImportService {
   /**
    * Validate category row
    */
-  private async validateCategoryRow(
-    data: any,
-    tenantId: bigint
-  ): Promise<string | null> {
+  private async validateCategoryRow(data: any, tenantId: bigint): Promise<string | null> {
     // Required fields
     if (!data.name) {
       return 'Category name is required';
@@ -369,10 +357,7 @@ export class ImportService {
   /**
    * Get import job details
    */
-  async getImportJob(
-    jobId: bigint,
-    tenantId: bigint
-  ): Promise<ImportJobDetailResponse> {
+  async getImportJob(jobId: bigint, tenantId: bigint): Promise<ImportJobDetailResponse> {
     const job = await this.repository.findJobWithRows(jobId, tenantId);
     if (!job) {
       throw new NotFoundError('Import job not found');
@@ -416,10 +401,7 @@ export class ImportService {
     jobs: ImportJobResponse[];
     pagination: { page: number; limit: number; total: number; pages: number };
   }> {
-    const { jobs, total } = await this.repository.findAllByTenant(
-      tenantId,
-      options
-    );
+    const { jobs, total } = await this.repository.findAllByTenant(tenantId, options);
 
     const jobResponses = await Promise.all(
       jobs.map(async (job) => {
@@ -528,11 +510,7 @@ export class ImportService {
   /**
    * Import customer row
    */
-  private async importCustomerRow(
-    data: any,
-    tenantId: bigint,
-    userId: bigint
-  ): Promise<void> {
+  private async importCustomerRow(data: any, tenantId: bigint, userId: bigint): Promise<void> {
     return prisma.$transaction(async (tx) => {
       // Check again for duplicates (idempotency)
       const existing = await tx.customer.findFirst({
@@ -578,24 +556,18 @@ export class ImportService {
       }
 
       // Audit log
-      AuditLogger.create(
-        tenantId,
-        userId,
-        'customer',
-        customer.id,
-        { name: data.name, phone: data.phone, source: 'import' }
-      );
+      AuditLogger.create(tenantId, userId, 'customer', customer.id, {
+        name: data.name,
+        phone: data.phone,
+        source: 'import',
+      });
     });
   }
 
   /**
    * Import product row (creates product and variant)
    */
-  private async importProductRow(
-    data: any,
-    tenantId: bigint,
-    userId: bigint
-  ): Promise<void> {
+  private async importProductRow(data: any, tenantId: bigint, userId: bigint): Promise<void> {
     return prisma.$transaction(async (tx) => {
       // Get or create category
       let category = await tx.categories.findFirst({
@@ -611,13 +583,10 @@ export class ImportService {
           },
         });
 
-        AuditLogger.create(
-          tenantId,
-          userId,
-          'category',
-          category.id,
-          { name: data.category_name, source: 'auto_import' }
-        );
+        AuditLogger.create(tenantId, userId, 'category', category.id, {
+          name: data.category_name,
+          source: 'auto_import',
+        });
       }
 
       // Check if product exists
@@ -635,13 +604,11 @@ export class ImportService {
           },
         });
 
-        AuditLogger.create(
-          tenantId,
-          userId,
-          'product',
-          product.id,
-          { name: data.product_name, category_id: category.id, source: 'import' }
-        );
+        AuditLogger.create(tenantId, userId, 'product', product.id, {
+          name: data.product_name,
+          category_id: category.id,
+          source: 'import',
+        });
       }
 
       // Check SKU duplicate again (idempotency)
@@ -666,18 +633,12 @@ export class ImportService {
         },
       });
 
-      AuditLogger.create(
-        tenantId,
-        userId,
-        'product_variant',
-        variant.id,
-        {
-          product_id: product.id,
-          sku: data.sku,
-          price: data.price,
-          source: 'import',
-        }
-      );
+      AuditLogger.create(tenantId, userId, 'product_variant', variant.id, {
+        product_id: product.id,
+        sku: data.sku,
+        price: data.price,
+        source: 'import',
+      });
     });
   }
 
@@ -718,9 +679,7 @@ export class ImportService {
             tenant_id: tenantId,
             variant_id: variant.id,
             quantity: Number(data.quantity),
-            low_stock_threshold: data.low_stock_threshold
-              ? Number(data.low_stock_threshold)
-              : 10,
+            low_stock_threshold: data.low_stock_threshold ? Number(data.low_stock_threshold) : 10,
           },
         });
       }
@@ -730,11 +689,7 @@ export class ImportService {
   /**
    * Import category row
    */
-  private async importCategoryRow(
-    data: any,
-    tenantId: bigint,
-    userId: bigint
-  ): Promise<void> {
+  private async importCategoryRow(data: any, tenantId: bigint, userId: bigint): Promise<void> {
     // Check duplicate again (idempotency)
     const existing = await this.categoryRepo.findByName(data.name, tenantId);
     if (existing) {
@@ -749,13 +704,10 @@ export class ImportService {
       },
     });
 
-    AuditLogger.create(
-      tenantId,
-      userId,
-      'category',
-      category.id,
-      { name: data.name, source: 'import' }
-    );
+    AuditLogger.create(tenantId, userId, 'category', category.id, {
+      name: data.name,
+      source: 'import',
+    });
   }
 
   /**
