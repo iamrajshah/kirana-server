@@ -21,7 +21,11 @@ router.use(extractTenant);
 router.get('/', hasPermission('PRODUCT_VIEW'), asyncHandler(inventoryController.getAllInventory));
 
 // GET /inventory/low-stock - Get low stock inventory (PRODUCT_VIEW permission)
-router.get('/low-stock', hasPermission('PRODUCT_VIEW'), asyncHandler(inventoryController.getLowStockInventory));
+router.get(
+  '/low-stock',
+  hasPermission('PRODUCT_VIEW'),
+  asyncHandler(inventoryController.getLowStockInventory)
+);
 
 // GET /inventory/:variantId - Get inventory by variant ID (PRODUCT_VIEW permission)
 router.get(

@@ -16,10 +16,10 @@ export function createFileStorage(): IFileStorage {
   switch (storageType) {
     case 'local':
       return new LocalFileStorage();
-    
+
     case 's3':
       return new S3FileStorage();
-    
+
     default:
       // Default to local for development
       if (config.env === 'development') {

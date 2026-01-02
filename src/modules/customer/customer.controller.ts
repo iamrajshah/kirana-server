@@ -3,7 +3,12 @@ import { CustomerService } from './customer.service';
 import { TenantRequest } from '@middlewares/tenant.middleware';
 import { AuthRequest } from '@middlewares/auth.middleware';
 import { asyncHandler } from '@utils/asyncHandler';
-import { CreateCustomerInput, UpdateCustomerInput, AddOpeningBalanceInput, UpdateCustomerStatusInput } from './customer.validation';
+import {
+  CreateCustomerInput,
+  UpdateCustomerInput,
+  AddOpeningBalanceInput,
+  UpdateCustomerStatusInput,
+} from './customer.validation';
 
 export class CustomerController {
   private readonly customerService: CustomerService;
@@ -112,7 +117,12 @@ export class CustomerController {
     const { id } = req.params;
     const { is_active } = req.body as UpdateCustomerStatusInput;
 
-    const customer = await this.customerService.updateCustomerStatus(id, tenantId, is_active, user?.userId);
+    const customer = await this.customerService.updateCustomerStatus(
+      id,
+      tenantId,
+      is_active,
+      user?.userId
+    );
 
     return res.json({
       success: true,

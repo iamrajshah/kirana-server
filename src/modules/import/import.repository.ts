@@ -136,7 +136,7 @@ export class ImportRepository {
       data: rows.map((row) => ({
         import_job_id: row.import_job_id,
         row_no: row.row_no,
-        raw_data: row.raw_data as any,
+        raw_data: row.raw_data,
         status: (row.status || 'PENDING') as any,
         error_message: row.error_message,
       })),
@@ -148,10 +148,7 @@ export class ImportRepository {
   /**
    * Update import job row
    */
-  async updateRow(
-    rowId: bigint,
-    data: UpdateImportJobRowData
-  ): Promise<import_job_rows> {
+  async updateRow(rowId: bigint, data: UpdateImportJobRowData): Promise<import_job_rows> {
     return prisma.import_job_rows.update({
       where: { id: rowId },
       data: data as any,

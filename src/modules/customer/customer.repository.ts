@@ -99,10 +99,7 @@ export class CustomerRepository extends BaseRepository<
         where,
         skip: options?.skip,
         take: options?.take,
-        orderBy: [
-          { credit_balance: 'desc' },
-          { created_at: 'desc' }
-        ],
+        orderBy: [{ credit_balance: 'desc' }, { created_at: 'desc' }],
       }),
       prisma.customer.count({ where }),
     ]);
@@ -153,11 +150,7 @@ export class CustomerRepository extends BaseRepository<
   /**
    * Update customer status
    */
-  async updateStatus(
-    customerId: bigint,
-    tenantId: bigint,
-    is_active: boolean
-  ): Promise<Customer> {
+  async updateStatus(customerId: bigint, tenantId: bigint, is_active: boolean): Promise<Customer> {
     return prisma.customer.update({
       where: {
         id: customerId,

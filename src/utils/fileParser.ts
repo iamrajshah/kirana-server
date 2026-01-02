@@ -106,10 +106,7 @@ export async function parseFile(
 ): Promise<ParseResult> {
   // Determine file type from extension or mime type
   const fileType = fileExtOrMime?.toLowerCase();
-  const isCsv =
-    fileType?.includes('csv') ||
-    fileType?.endsWith('.csv') ||
-    fileType === 'text/csv';
+  const isCsv = fileType?.includes('csv') || fileType?.endsWith('.csv') || fileType === 'text/csv';
   const isExcel =
     fileType?.includes('xlsx') ||
     fileType?.includes('xls') ||
@@ -131,10 +128,7 @@ export async function parseFile(
 /**
  * Generate CSV from data
  */
-export function generateCSV(
-  data: Record<string, any>[],
-  headers: string[]
-): string {
+export function generateCSV(data: Record<string, any>[], headers: string[]): string {
   if (data.length === 0) {
     return headers.join(',') + '\n';
   }
@@ -163,10 +157,7 @@ export function generateCSV(
 /**
  * Generate Excel from data
  */
-export function generateExcel(
-  data: Record<string, any>[],
-  headers: string[]
-): Buffer {
+export function generateExcel(data: Record<string, any>[], headers: string[]): Buffer {
   const worksheet = XLSX.utils.json_to_sheet(data, { header: headers });
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');

@@ -15,10 +15,18 @@ export class InvoiceController {
     const { user } = req as AuthRequest;
     const tenant_id = BigInt(tenantId);
     const created_by = BigInt(user!.userId);
-    const { customer_id, items, gst_amount, invoice_url, idempotency_key, discount_amount, status } = req.body;
-    
+    const {
+      customer_id,
+      items,
+      gst_amount,
+      invoice_url,
+      idempotency_key,
+      discount_amount,
+      status,
+    } = req.body;
+
     // Idempotency key from header takes precedence over body
-    const idempotencyKey = req.headers['idempotency-key'] as string || idempotency_key;
+    const idempotencyKey = (req.headers['idempotency-key'] as string) || idempotency_key;
 
     const invoice = await this.invoiceService.createInvoice(
       tenant_id,
@@ -67,11 +75,7 @@ export class InvoiceController {
     const finalized_by = BigInt(user!.userId);
     const invoice_id = BigInt(req.params.id);
 
-    const invoice = await this.invoiceService.finalizeInvoice(
-      invoice_id,
-      tenant_id,
-      finalized_by
-    );
+    const invoice = await this.invoiceService.finalizeInvoice(invoice_id, tenant_id, finalized_by);
 
     res.json({
       success: true,
@@ -107,10 +111,7 @@ export class InvoiceController {
     const tenant_id = BigInt(tenantId);
     const customer_id = BigInt(req.params.customerId);
 
-    const invoices = await this.invoiceService.getPendingInvoicesByCustomer(
-      customer_id,
-      tenant_id
-    );
+    const invoices = await this.invoiceService.getPendingInvoicesByCustomer(customer_id, tenant_id);
 
     res.json({
       success: true,

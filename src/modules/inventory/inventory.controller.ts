@@ -88,7 +88,13 @@ export class InventoryController {
     const tenant_id = BigInt(tenantId);
     const { adjustment, reason } = req.body;
 
-    const inventory = await this.inventoryService.adjustInventory(variant_id, tenant_id, adjustment, reason, user?.userId);
+    const inventory = await this.inventoryService.adjustInventory(
+      variant_id,
+      tenant_id,
+      adjustment,
+      reason,
+      user?.userId
+    );
 
     res.json({
       success: true,

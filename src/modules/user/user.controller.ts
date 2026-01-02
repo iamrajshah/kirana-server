@@ -85,11 +85,7 @@ export class UserController {
     const { user } = req as AuthRequest;
     const data: UpdateOwnProfileInput = req.body;
 
-    const result = await this.userService.updateOwnProfile(
-      user?.userId || '',
-      tenantId,
-      data
-    );
+    const result = await this.userService.updateOwnProfile(user?.userId || '', tenantId, data);
 
     return res.json({
       success: true,
@@ -107,11 +103,7 @@ export class UserController {
     const { user } = req as AuthRequest;
     const data: ChangeOwnPasswordInput = req.body;
 
-    const result = await this.userService.changeOwnPassword(
-      user?.userId || '',
-      tenantId,
-      data
-    );
+    const result = await this.userService.changeOwnPassword(user?.userId || '', tenantId, data);
 
     return res.json({
       success: true,

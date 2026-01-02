@@ -29,7 +29,7 @@ export class PurchaseRepository {
       data: {
         ...data,
         purchase_invoice_items: {
-          create: items.map(item => ({
+          create: items.map((item) => ({
             product_id: item.variant_id,
             variant_id: item.variant_id,
             quantity: item.quantity,
