@@ -105,10 +105,15 @@ model Invoice {
   invoice_number   String?            @unique(map: "invoice_number") @db.VarChar(50)
   total_amount     Decimal?           @db.Decimal(10, 2)
   gst_amount       Decimal?           @db.Decimal(10, 2)
-  status           invoices_status?
+  status           invoices_status?   @default(DRAFT)
   invoice_url      String?            @db.VarChar(255)
   created_at       DateTime?          @default(now()) @db.DateTime(0)
   idempotency_key  String?            @db.VarChar(64)
+  subtotal_amount  Decimal?           @db.Decimal(12, 2)
+  discount_amount  Decimal?           @default(0.00) @db.Decimal(12, 2)
+  paid_amount      Decimal?           @default(0.00) @db.Decimal(12, 2)
+  finalized_at     DateTime?          @db.DateTime(0)
+  cancelled_at     DateTime?          @db.DateTime(0)
   invoice_items    InvoiceItem[]
   invoice_payments invoice_payments[]
   tenants          Tenant             @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoices_ibfk_1")
@@ -128,6 +133,9 @@ model InvoiceItem {
   variant_id       BigInt?
   quantity         Int?
   price            Decimal?          @db.Decimal(10, 2)
+  unit_price       Decimal           @db.Decimal(10, 2)
+  discount_amount  Decimal?          @default(0.00) @db.Decimal(10, 2)
+  final_price      Decimal           @db.Decimal(10, 2)
   invoices         Invoice?          @relation(fields: [invoice_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoice_items_ibfk_1")
   product_variants product_variants? @relation(fields: [variant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "invoice_items_ibfk_2")
 
@@ -146,6 +154,7 @@ model Payment {
   reference_note   String?                @db.VarChar(255)
   created_at       DateTime?              @default(now()) @db.DateTime(0)
   idempotency_key  String?                @db.VarChar(64)
+  applied_amount   Decimal?               @db.Decimal(10, 2)
   invoice_payments invoice_payments[]
   tenants          Tenant                 @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payments_ibfk_1")
   customers        Customer               @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "payments_ibfk_2")
@@ -256,6 +265,8 @@ model product_variants {
   gst_percent            Decimal?                    @db.Decimal(5, 2)
   sku                    String?                     @db.VarChar(50)
   is_active              Boolean?                    @default(true)
+  mrp_price              Decimal?                    @db.Decimal(10, 2)
+  selling_price          Decimal?                    @db.Decimal(10, 2)
   inventory              Inventory?
   invoice_items          InvoiceItem[]
   tenants                Tenant                      @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "product_variants_ibfk_1")
@@ -442,11 +453,6 @@ enum product_variants_packaging {
   BOX
 }
 
-enum invoices_status {
-  PAID
-  UNPAID
-}
-
 enum tenants_status {
   ACTIVE
   SUSPENDED
@@ -462,4 +468,13 @@ enum purchase_invoices_status {
   UNPAID
   PARTIAL
   PAID
+}
+
+enum invoices_status {
+  DRAFT
+  FINALIZED
+  UNPAID
+  PARTIAL
+  PAID
+  CANCELLED
 }

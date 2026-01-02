@@ -12,6 +12,7 @@ export class PaymentService {
 
   /**
    * Create payment with atomic transaction and idempotency support
+   * Supports multi-invoice payment allocation
    * Idempotency is enforced using the unique constraint on (tenant_id, idempotency_key)
    * If a duplicate idempotency key is provided, returns the existing payment instead of creating a new one
    */
@@ -23,7 +24,8 @@ export class PaymentService {
     created_by: bigint,
     invoice_id?: string,
     reference_note?: string,
-    idempotency_key?: string
+    idempotency_key?: string,
+    invoice_allocations?: Array<{ invoice_id: string; amount: number }> // Multi-invoice support
   ) {
     // If idempotency key is provided, check for existing payment
     if (idempotency_key) {
@@ -58,9 +60,49 @@ export class PaymentService {
     }
 
     let invoice_id_bigint: bigint | undefined;
+    let allocations: Array<{ invoice_id: bigint; amount: number }> = [];
 
-    // Validate invoice if provided
-    if (invoice_id) {
+    // Handle multi-invoice allocation
+    if (invoice_allocations && invoice_allocations.length > 0) {
+      // Validate all invoices and calculate total allocated
+      let totalAllocated = 0;
+      for (const allocation of invoice_allocations) {
+        const invoice = await prisma.invoice.findFirst({
+          where: {
+            id: BigInt(allocation.invoice_id),
+            tenant_id,
+            customer_id,
+            status: {
+              in: ['UNPAID', 'PARTIAL'],
+            },
+          },
+        });
+
+        if (!invoice) {
+          throw new NotFoundError(
+            `Invoice ${allocation.invoice_id} not found or not eligible for payment`
+          );
+        }
+
+        const balance = Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0);
+        if (allocation.amount > balance) {
+          throw new BadRequestError(
+            `Allocation amount ${allocation.amount} exceeds invoice ${allocation.invoice_id} balance ${balance}`
+          );
+        }
+
+        allocations.push({
+          invoice_id: BigInt(allocation.invoice_id),
+          amount: allocation.amount,
+        });
+        totalAllocated += allocation.amount;
+      }
+
+      if (totalAllocated > amount) {
+        throw new BadRequestError('Total allocated amount exceeds payment amount');
+      }
+    } else if (invoice_id) {
+      // Single invoice payment (legacy support)
       invoice_id_bigint = BigInt(invoice_id);
       const invoice = await prisma.invoice.findFirst({
         where: {
@@ -73,6 +115,8 @@ export class PaymentService {
       if (!invoice) {
         throw new NotFoundError('Invoice not found or does not belong to this customer');
       }
+
+      allocations = [{ invoice_id: invoice_id_bigint, amount }];
     }
 
     // Use Prisma transaction for atomicity with increased timeout
@@ -82,7 +126,7 @@ export class PaymentService {
         data: {
           tenant_id,
           customer_id,
-          invoice_id: invoice_id_bigint,
+          invoice_id: allocations.length === 1 ? allocations[0].invoice_id : undefined, // Legacy single invoice support
           amount,
           payment_mode,
           reference_note,
@@ -98,9 +142,10 @@ export class PaymentService {
           entry_type: 'PAYMENT',
           amount: -amount, // Negative because it reduces the balance
           reference_id: payment.id,
-          description: invoice_id
-            ? `Payment for Invoice ${invoice_id}`
-            : `Payment received - ${payment_mode}`,
+          description:
+            allocations.length > 0
+              ? `Payment for ${allocations.length} invoice(s)`
+              : `Payment received - ${payment_mode}`,
           created_by,
         },
       });
@@ -138,24 +183,57 @@ export class PaymentService {
         );
       }
 
-      // Step 4: If payment is for an invoice and amount >= invoice amount, mark invoice as PAID
-      if (invoice_id_bigint) {
+      // Step 4: Process invoice allocations and update invoice statuses
+      for (const allocation of allocations) {
         const invoice = await tx.invoice.findUnique({
-          where: { id: invoice_id_bigint },
+          where: { id: allocation.invoice_id },
         });
 
-        if (invoice && invoice.total_amount && amount >= Number(invoice.total_amount)) {
-          await tx.invoice.update({
-            where: { id: invoice_id_bigint },
-            data: { status: 'PAID' },
-          });
+        if (!invoice) {
+          throw new NotFoundError(`Invoice ${allocation.invoice_id} not found`);
         }
+
+        // Create invoice_payment junction record
+        await tx.invoice_payments.create({
+          data: {
+            tenant_id,
+            invoice_id: allocation.invoice_id,
+            payment_id: payment.id,
+            amount: allocation.amount,
+          },
+        });
+
+        // Recalculate invoice status based on payment
+        const currentPaidAmount = Number(invoice.paid_amount || 0);
+        const newPaidAmount = currentPaidAmount + allocation.amount;
+        const totalAmount = Number(invoice.total_amount || 0);
+
+        // Determine new invoice status based on recalculated amounts
+        let newStatus: 'DRAFT' | 'FINALIZED' | 'UNPAID' | 'PARTIAL' | 'PAID' | 'CANCELLED' =
+          invoice.status as any;
+
+        if (newPaidAmount >= totalAmount) {
+          newStatus = 'PAID';
+        } else if (newPaidAmount > 0 && newPaidAmount < totalAmount) {
+          newStatus = 'PARTIAL';
+        } else if (newPaidAmount === 0 && invoice.status !== 'DRAFT' && invoice.status !== 'CANCELLED') {
+          newStatus = 'UNPAID';
+        }
+
+        // Update invoice with new paid amount and recalculated status
+        await tx.invoice.update({
+          where: { id: allocation.invoice_id },
+          data: {
+            paid_amount: newPaidAmount,
+            status: newStatus,
+          },
+        });
       }
 
       return payment;
     }, {
-      maxWait: 10000, // Wait up to 10s to start transaction
-      timeout: 30000, // Transaction timeout 30s
+      maxWait: 10000,
+      timeout: 30000,
     });
 
     // Audit log
@@ -247,9 +325,12 @@ export class PaymentService {
             id: payment.invoices.id.toString(),
             invoice_number: payment.invoices.invoice_number,
             total_amount: payment.invoices.total_amount,
+            paid_amount: payment.invoices.paid_amount,
+            status: payment.invoices.status,
           }
         : null,
       amount: payment.amount,
+      applied_amount: payment.applied_amount, // Amount actually applied to invoice
       payment_mode: payment.payment_mode,
       reference_note: payment.reference_note,
       created_at: payment.created_at,

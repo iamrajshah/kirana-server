@@ -498,10 +498,13 @@ export class ProductService {
   private formatVariantResponse(variant: product_variants): VariantResponse {
     return {
       id: variant.id.toString(),
+      product_id: variant.product_id.toString(),
       brand: variant.brand,
       size: variant.size,
       packaging: variant.packaging,
       price: Number(variant.price),
+      selling_price: variant.selling_price ? Number(variant.selling_price) : undefined,
+      mrp_price: variant.mrp_price ? Number(variant.mrp_price) : undefined,
       gst_percent: variant.gst_percent ? Number(variant.gst_percent) : null,
       sku: variant.sku,
       is_active: variant.is_active,

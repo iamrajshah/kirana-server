@@ -15,7 +15,7 @@ export class PaymentController {
     const { user } = req as AuthRequest;
     const tenant_id = BigInt(tenantId);
     const created_by = BigInt(user!.userId);
-    const { customer_id, amount, payment_mode, invoice_id, reference_note, idempotency_key } = req.body;
+    const { customer_id, amount, payment_mode, invoice_id, reference_note, idempotency_key, invoice_allocations } = req.body;
     
     // Idempotency key from header takes precedence over body
     const idempotencyKey = req.headers['idempotency-key'] as string || idempotency_key;
@@ -28,7 +28,8 @@ export class PaymentController {
       created_by,
       invoice_id,
       reference_note,
-      idempotencyKey
+      idempotencyKey,
+      invoice_allocations
     );
 
     res.status(201).json({
