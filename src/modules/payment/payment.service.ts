@@ -336,4 +336,86 @@ export class PaymentService {
       created_at: payment.created_at,
     };
   }
+
+  /**
+   * Create payment intent (for customer-facing API)
+   */
+  async createPaymentIntent(
+    tenant_id: bigint,
+    customer_id: bigint,
+    invoice_id: bigint,
+    amount: number
+  ) {
+    const invoice = await prisma.invoice.findFirst({
+      where: {
+        id: invoice_id,
+        tenant_id,
+        customer_id,
+      },
+    });
+
+    if (!invoice) {
+      throw new NotFoundError('Invoice not found');
+    }
+
+    const balance = Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0);
+
+    if (balance <= 0) {
+      throw new BadRequestError('Invoice is already fully paid');
+    }
+
+    if (amount > balance) {
+      throw new BadRequestError('Payment amount exceeds invoice balance');
+    }
+
+    return {
+      invoice_id: invoice.id.toString(),
+      invoice_number: invoice.invoice_number,
+      total_amount: invoice.total_amount,
+      paid_amount: invoice.paid_amount || 0,
+      balance_amount: balance,
+      payment_amount: amount,
+      intent_created_at: new Date(),
+    };
+  }
+
+  /**
+   * Get payments by invoice
+   */
+  async getPaymentsByInvoice(invoice_id: bigint, tenant_id: bigint) {
+    const payments = await prisma.payment.findMany({
+      where: {
+        invoice_id,
+        tenant_id,
+      },
+      include: {
+        customers: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+          },
+        },
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+    });
+
+    return payments.map((payment) => ({
+      id: payment.id.toString(),
+      customer: payment.customers
+        ? {
+            id: payment.customers.id.toString(),
+            name: payment.customers.name,
+            phone: payment.customers.phone,
+          }
+        : null,
+      amount: payment.amount,
+      applied_amount: payment.applied_amount,
+      payment_mode: payment.payment_mode,
+      reference_note: payment.reference_note,
+      created_at: payment.created_at,
+    }));
+  }
 }

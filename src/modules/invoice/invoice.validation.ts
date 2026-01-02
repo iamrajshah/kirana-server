@@ -77,3 +77,30 @@ export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>['body'];
 export type UpdateInvoiceInput = z.infer<typeof updateInvoiceSchema>['body'];
 export type FinalizeInvoiceInput = z.infer<typeof finalizeInvoiceSchema>['params'];
 export type CancelInvoiceInput = z.infer<typeof cancelInvoiceSchema>['body'];
+
+// Customer-facing schemas
+export const createInvoiceFromOrderSchema = z.object({
+  params: z.object({
+    orderId: z.string().min(1, 'Order ID is required'),
+  }),
+});
+
+export const updateInvoiceItemsSchema = z.object({
+  params: z.object({
+    id: z.string().min(1, 'Invoice ID is required'),
+  }),
+  body: z.object({
+    items: z
+      .array(
+        z.object({
+          variant_id: z.string().min(1, 'Variant ID is required'),
+          quantity: z.number().int().positive('Quantity must be positive'),
+          price: z.number().positive('Price must be positive').optional(),
+        })
+      )
+      .min(1, 'At least one item is required'),
+  }),
+});
+
+export type CreateInvoiceFromOrderInput = z.infer<typeof createInvoiceFromOrderSchema>['params'];
+export type UpdateInvoiceItemsInput = z.infer<typeof updateInvoiceItemsSchema>['body'];

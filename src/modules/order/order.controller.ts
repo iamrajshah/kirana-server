@@ -94,4 +94,43 @@ export class OrderController {
       });
     }
   );
+
+  /**
+   * Cancel order - POST /orders/:id/cancel
+   */
+  cancelOrder = asyncHandler(
+    async (req: Request, res: Response): Promise<Response> => {
+      const { tenant, customer } = req as unknown as CustomerRequest;
+      const tenantId = tenant.id;
+      const customerId = customer.id;
+      const orderId = BigInt(req.params.id);
+
+      const order = await this.orderService.cancelOrder(tenantId, customerId, orderId);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Order cancelled successfully',
+        data: order,
+      });
+    }
+  );
+
+  /**
+   * Get order status - GET /orders/:id/status
+   */
+  getOrderStatus = asyncHandler(
+    async (req: Request, res: Response): Promise<Response> => {
+      const { tenant, customer } = req as unknown as CustomerRequest;
+      const tenantId = tenant.id;
+      const customerId = customer.id;
+      const orderId = BigInt(req.params.id);
+
+      const status = await this.orderService.getOrderStatus(tenantId, customerId, orderId);
+
+      return res.status(200).json({
+        success: true,
+        data: status,
+      });
+    }
+  );
 }

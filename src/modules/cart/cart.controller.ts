@@ -31,7 +31,7 @@ export class CartController {
   });
 
   /**
-   * Add item to cart - POST /cart/items
+   * Add item to cart - POST /cart/add
    */
   addItem = asyncHandler(
     async (req: Request, res: Response): Promise<Response> => {
@@ -51,7 +51,7 @@ export class CartController {
   );
 
   /**
-   * Update cart item - PUT /cart/items/:id
+   * Update cart item - PUT /cart/update
    */
   updateItem = asyncHandler(
     async (
@@ -61,8 +61,8 @@ export class CartController {
       const { tenant, customer } = req as unknown as CustomerRequest;
       const tenantId = tenant.id;
       const customerId = customer.id;
-      const itemId = BigInt(req.params.id);
       const data = req.body as UpdateCartItemInput;
+      const itemId = BigInt(data.item_id);
 
       const cart = await this.cartService.updateItem(tenantId, customerId, itemId, data);
 
@@ -75,14 +75,14 @@ export class CartController {
   );
 
   /**
-   * Remove item from cart - DELETE /cart/items/:id
+   * Remove item from cart - DELETE /cart/remove/:itemId
    */
   removeItem = asyncHandler(
     async (req: Request, res: Response): Promise<Response> => {
       const { tenant, customer } = req as unknown as CustomerRequest;
       const tenantId = tenant.id;
       const customerId = customer.id;
-      const itemId = BigInt(req.params.id);
+      const itemId = BigInt(req.params.itemId);
 
       const cart = await this.cartService.removeItem(tenantId, customerId, itemId);
 
@@ -95,7 +95,7 @@ export class CartController {
   );
 
   /**
-   * Clear cart - DELETE /cart
+   * Clear cart - DELETE /cart/clear
    */
   clearCart = asyncHandler(async (req: Request, res: Response): Promise<Response> => {
     const { tenant, customer } = req as unknown as CustomerRequest;
@@ -109,4 +109,19 @@ export class CartController {
       message: 'Cart cleared',
     });
   });
-}
+  /**
+   * Checkout cart (create order) - POST /cart/checkout
+   */
+  checkout = asyncHandler(async (req: Request, res: Response): Promise<Response> => {
+    const { tenant, customer } = req as unknown as CustomerRequest;
+    const tenantId = tenant.id;
+    const customerId = customer.id;
+
+    const order = await this.cartService.checkout(tenantId, customerId);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Order created successfully',
+      data: order,
+    });
+  });}

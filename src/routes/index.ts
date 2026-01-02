@@ -6,8 +6,8 @@ import productRoutes from '@modules/product/product.routes';
 import variantRoutes from '@modules/product/variant.routes';
 import categoryRoutes from '@modules/category/category.routes';
 import inventoryRoutes from '@modules/inventory/inventory.routes';
-import invoiceRoutes from '@modules/invoice/invoice.routes';
-import paymentRoutes from '@modules/payment/payment.routes';
+import posInvoiceRoutes from '@modules/invoice/invoice.routes';
+import posPaymentRoutes from '@modules/payment/payment.routes';
 import reportsRoutes from '@modules/reports/reports.routes';
 import importRoutes from '@modules/import/import.routes';
 import dashboardRoutes from '@modules/dashboard/dashboard.routes';
@@ -19,6 +19,8 @@ import customerAuthRoutes from '@modules/customer-auth';
 import catalogRoutes from '@modules/catalog';
 import cartRoutes from '@modules/cart';
 import orderRoutes from '@modules/order';
+import invoiceRoutes from '@modules/invoice';
+import paymentRoutes from '@modules/payment';
 
 const router = Router();
 
@@ -31,8 +33,10 @@ router.use('/customer-auth', customerAuthRoutes);
 router.use('/catalog', catalogRoutes);
 router.use('/cart', cartRoutes);
 router.use('/orders', orderRoutes);
+router.use('/invoices', invoiceRoutes);
+router.use('/payments', paymentRoutes);
 
-// Protected routes
+// Protected POS routes
 router.use('/dashboard', dashboardRoutes);
 router.use('/users', userRoutes);
 router.use('/customers', customerRoutes);
@@ -41,9 +45,9 @@ router.use('/products', productRoutes);
 router.use('/variants', variantRoutes);
 router.use('/categories', categoryRoutes);
 router.use('/inventory', inventoryRoutes);
-router.use('/invoices', invoiceRoutes);
+router.use('/pos/invoices', posInvoiceRoutes);
 router.use('/purchases', purchaseRoutes);
-router.use('/payments', paymentRoutes);
+router.use('/pos/payments', posPaymentRoutes);
 router.use('/reports', reportsRoutes);
 router.use('/import', importRoutes);
 

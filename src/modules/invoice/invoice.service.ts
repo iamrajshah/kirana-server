@@ -858,4 +858,127 @@ export class InvoiceService {
       finalized_at: invoice.finalized_at,
     }));
   }
+
+  /**
+   * Get invoice by order ID
+   */
+  async getInvoiceByOrderId(_order_id: bigint, _tenant_id: bigint) {
+    // Note: Invoice table doesn't have order_id in schema
+    // This method returns null for now
+    // TODO: Add order_id to invoice schema or use different approach
+    return null;
+  }
+
+  /**
+   * Create invoice from order
+   */
+  async createInvoiceFromOrder(order_id: bigint, tenant_id: bigint, created_by: bigint) {
+    // Fetch order using raw SQL
+    const orderResult = await prisma.$queryRaw<any[]>`
+      SELECT id, customer_id, total_amount
+      FROM orders
+      WHERE id = ${order_id} AND tenant_id = ${tenant_id}
+      LIMIT 1
+    `;
+
+    if (!orderResult || orderResult.length === 0) {
+      throw new NotFoundError('Order not found');
+    }
+
+    const order = orderResult[0];
+
+    // Get order items using raw SQL
+    const orderItems = await prisma.$queryRaw<any[]>`
+      SELECT variant_id, quantity, unit_price
+      FROM order_items
+      WHERE order_id = ${order_id}
+    `;
+
+    const items = orderItems.map((item: any) => ({
+      variant_id: item.variant_id.toString(),
+      quantity: Number(item.quantity),
+      price: Number(item.unit_price),
+    }));
+
+    return this.createInvoice(
+      tenant_id,
+      order.customer_id,
+      items,
+      0, // gst_amount
+      undefined, // invoice_url
+      created_by,
+      `order-${order_id}`, // idempotency key
+      0, // discount_amount
+      'DRAFT'
+    );
+  }
+
+  /**
+   * Update invoice items only (for DRAFT invoices)
+   */
+  async updateInvoiceItemsOnly(
+    invoice_id: bigint,
+    tenant_id: bigint,
+    items: Array<{ variant_id: string; quantity: number; price?: number }>,
+  ) {
+    const invoice = await prisma.invoice.findFirst({
+      where: {
+        id: invoice_id,
+        tenant_id,
+      },
+    });
+
+    if (!invoice) {
+      throw new NotFoundError('Invoice not found');
+    }
+
+    if (invoice.status !== 'DRAFT') {
+      throw new BadRequestError('Can only update items for DRAFT invoices');
+    }
+
+    // Delete existing items and create new ones
+    await prisma.$transaction(async (tx) => {
+      await tx.invoiceItem.deleteMany({
+        where: { invoice_id },
+      });
+
+      let total_amount = 0;
+
+      for (const item of items) {
+        const variant_id = BigInt(item.variant_id);
+        const variant = await tx.product_variants.findFirst({
+          where: { id: variant_id },
+        });
+
+        if (!variant) {
+          throw new NotFoundError(`Variant ${item.variant_id} not found`);
+        }
+
+        const unit_price = item.price !== undefined ? item.price : Number(variant.selling_price || 0);
+        const final_price = unit_price * item.quantity;
+
+        await tx.invoiceItem.create({
+          data: {
+            invoice_id,
+            variant_id,
+            quantity: item.quantity,
+            unit_price,
+            final_price,
+          } as any,
+        });
+
+        total_amount += final_price;
+      }
+
+      await tx.invoice.update({
+        where: { id: invoice_id },
+        data: {
+          total_amount,
+          updated_at: new Date(),
+        } as any,
+      });
+    });
+
+    return this.getInvoiceById(invoice_id, tenant_id);
+  }
 }

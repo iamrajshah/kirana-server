@@ -27,3 +27,20 @@ export const getCustomerPaymentsSchema = z.object({
     customerId: z.string().min(1, 'Customer ID is required'),
   }),
 });
+
+// Customer-facing schemas
+export const createPaymentIntentSchema = z.object({
+  body: z.object({
+    invoice_id: z.string().min(1, 'Invoice ID is required'),
+    amount: z.number().positive('Amount must be positive'),
+  }),
+});
+
+export const getPaymentsByInvoiceSchema = z.object({
+  query: z.object({
+    invoiceId: z.string().min(1, 'Invoice ID is required'),
+  }),
+});
+
+export type CreatePaymentIntentInput = z.infer<typeof createPaymentIntentSchema>['body'];
+export type GetPaymentsByInvoiceInput = z.infer<typeof getPaymentsByInvoiceSchema>['query'];

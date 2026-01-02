@@ -111,4 +111,39 @@ export class OrderService {
 
     return this.getOrderById(tenantId, BigInt(0), orderId);
   }
+
+  async cancelOrder(tenantId: bigint, customerId: bigint, orderId: bigint) {
+    const order = await this.repository.findOrderById(tenantId, orderId, customerId);
+
+    if (!order) {
+      throw new AppError('Order not found', 404);
+    }
+
+    if (order.status === 'CANCELLED') {
+      throw new AppError('Order is already cancelled', 400);
+    }
+
+    if (order.status === 'DELIVERED') {
+      throw new AppError('Cannot cancel delivered order', 400);
+    }
+
+    await this.repository.updateOrderStatus(orderId, 'CANCELLED');
+
+    return this.getOrderById(tenantId, customerId, orderId);
+  }
+
+  async getOrderStatus(tenantId: bigint, customerId: bigint, orderId: bigint) {
+    const order = await this.repository.findOrderById(tenantId, orderId, customerId);
+
+    if (!order) {
+      throw new AppError('Order not found', 404);
+    }
+
+    return {
+      order_id: order.id,
+      status: order.status,
+      created_at: order.created_at,
+      updated_at: order.updated_at,
+    };
+  }
 }

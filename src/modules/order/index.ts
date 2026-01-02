@@ -20,6 +20,8 @@ router.use(extractTenant);
 router.post('/', customerAuth, controller.createOrder);
 router.get('/', customerAuth, validate(getOrdersSchema), controller.getOrders);
 router.get('/:id', customerAuth, validate(getOrderByIdSchema), controller.getOrderById);
+router.post('/:id/cancel', customerAuth, validate(getOrderByIdSchema), controller.cancelOrder);
+router.get('/:id/status', customerAuth, validate(getOrderByIdSchema), controller.getOrderStatus);
 
 // POS user routes (requires auth middleware)
 router.patch('/:id/status', authenticate, validate(updateOrderStatusSchema), controller.updateOrderStatus);

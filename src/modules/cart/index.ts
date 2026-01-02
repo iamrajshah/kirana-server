@@ -12,10 +12,22 @@ const controller = new CartController();
 router.use(extractTenant);
 router.use(customerAuth);
 
+// Get cart
 router.get('/', controller.getCart);
-router.post('/items', validate(addCartItemSchema), controller.addItem);
-router.put('/items/:id', validate(updateCartItemSchema), controller.updateItem);
-router.delete('/items/:id', validate(removeCartItemSchema), controller.removeItem);
-router.delete('/', controller.clearCart);
+
+// Add item to cart
+router.post('/add', validate(addCartItemSchema), controller.addItem);
+
+// Update cart item
+router.put('/update', validate(updateCartItemSchema), controller.updateItem);
+
+// Remove item from cart
+router.delete('/remove/:itemId', validate(removeCartItemSchema), controller.removeItem);
+
+// Clear cart
+router.delete('/clear', controller.clearCart);
+
+// Checkout cart (create order)
+router.post('/checkout', controller.checkout);
 
 export default router;

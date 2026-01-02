@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { PaymentService } from './payment.service';
 import { TenantRequest } from '@middlewares/tenant.middleware';
 import { AuthRequest } from '@middlewares/auth.middleware';
+import { CustomerRequest } from '@middlewares/customer-auth.middleware';
 
 export class PaymentController {
   private paymentService: PaymentService;
@@ -94,6 +95,54 @@ export class PaymentController {
         skip: skip || 0,
         take: take || result.total,
       },
+    });
+  };
+
+  // Customer-facing endpoints
+
+  /**
+   * Create payment intent - POST /payments/intent
+   */
+  createPaymentIntent = async (req: Request, res: Response) => {
+    const { tenant, customer } = req as unknown as CustomerRequest;
+    const tenantId = tenant.id;
+    const customerId = customer.id;
+    const { invoice_id, amount } = req.body;
+
+    const intent = await this.paymentService.createPaymentIntent(
+      tenantId,
+      customerId,
+      BigInt(invoice_id),
+      amount
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Payment intent created',
+      data: intent,
+    });
+  };
+
+  /**
+   * Get payments by invoice - GET /payments?invoiceId=
+   */
+  getPaymentsByInvoice = async (req: Request, res: Response): Promise<Response> => {
+    const { tenantId } = req as TenantRequest;
+    const tenant_id = BigInt(tenantId);
+    const invoice_id = req.query.invoiceId ? BigInt(req.query.invoiceId as string) : undefined;
+
+    if (!invoice_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'invoiceId query parameter is required',
+      });
+    }
+
+    const payments = await this.paymentService.getPaymentsByInvoice(invoice_id, tenant_id);
+
+    return res.json({
+      success: true,
+      data: payments,
     });
   };
 }

@@ -1,6 +1,7 @@
 import { CartRepository, Cart } from './cart.repository';
 import { AppError } from '@utils/errors';
 import { AddCartItemInput, UpdateCartItemInput } from './cart.validation';
+import { OrderService } from '@modules/order/order.service';
 
 export class CartService {
   private readonly repository: CartRepository;
@@ -78,5 +79,21 @@ export class CartService {
   async clearCart(tenantId: bigint, customerId: bigint): Promise<void> {
     const cart = await this.getOrCreateCart(tenantId, customerId);
     await this.repository.clearCartItems(cart.id);
+  }
+
+  async checkout(tenantId: bigint, customerId: bigint): Promise<any> {
+    const cart = await this.getOrCreateCart(tenantId, customerId);
+
+    if (!cart.items || cart.items.length === 0) {
+      throw new AppError('Cart is empty', 400);
+    }
+
+    const orderService = new OrderService();
+    const order = await orderService.createOrderFromCart(tenantId, customerId);
+
+    // Clear cart after successful order creation
+    await this.clearCart(tenantId, customerId);
+
+    return order;
   }
 }

@@ -20,3 +20,14 @@ export const getProductByIdSchema = z.object({
 });
 
 export type GetProductByIdParamsInput = z.infer<typeof getProductByIdSchema>['params'];
+
+// GET /catalog/search?q= - Query params validation
+export const searchProductsSchema = z.object({
+  query: z.object({
+    q: z.string().optional(),
+    skip: z.string().optional(),
+    take: z.string().optional(),
+  }),
+});
+
+export type SearchProductsQueryInput = z.infer<typeof searchProductsSchema>['query'];

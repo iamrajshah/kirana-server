@@ -175,4 +175,74 @@ export class InvoiceController {
       },
     });
   };
+
+  // Customer-facing endpoints
+
+  /**
+   * Create invoice from order - POST /invoices/from-order/:orderId
+   */
+  createInvoiceFromOrder = async (req: Request, res: Response): Promise<Response> => {
+    const { tenantId } = req as TenantRequest;
+    const { user } = req as AuthRequest;
+    const tenant_id = BigInt(tenantId);
+    const created_by = BigInt(user!.userId);
+    const order_id = BigInt(req.params.orderId);
+
+    // Check if invoice already exists for this order
+    const existingInvoice = await this.invoiceService.getInvoiceByOrderId(order_id, tenant_id);
+    
+    if (existingInvoice) {
+      return res.json({
+        success: true,
+        message: 'Invoice already exists for this order',
+        data: existingInvoice,
+      });
+    }
+
+    const invoice = await this.invoiceService.createInvoiceFromOrder(order_id, tenant_id, created_by);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Invoice created from order successfully',
+      data: invoice,
+    });
+  };
+
+  /**
+   * Update invoice items - PATCH /invoices/:id/items
+   */
+  updateInvoiceItems = async (req: Request, res: Response): Promise<Response> => {
+    const { tenantId } = req as TenantRequest;
+    const tenant_id = BigInt(tenantId);
+    const invoice_id = BigInt(req.params.id);
+    const { items } = req.body;
+
+    const invoice = await this.invoiceService.updateInvoiceItemsOnly(
+      invoice_id,
+      tenant_id,
+      items
+    );
+
+    return res.json({
+      success: true,
+      message: 'Invoice items updated successfully',
+      data: invoice,
+    });
+  };
+
+  /**
+   * Get invoice - GET /invoices/:id
+   */
+  getInvoice = async (req: Request, res: Response) => {
+    const { tenantId } = req as TenantRequest;
+    const tenant_id = BigInt(tenantId);
+    const invoice_id = BigInt(req.params.id);
+
+    const invoice = await this.invoiceService.getInvoiceById(invoice_id, tenant_id);
+
+    res.json({
+      success: true,
+      data: invoice,
+    });
+  };
 }

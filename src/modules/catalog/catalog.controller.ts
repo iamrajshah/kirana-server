@@ -65,4 +65,26 @@ export class CatalogController {
       });
     }
   );
+
+  /**
+   * Search products - GET /catalog/search?q=
+   */
+  searchProducts = asyncHandler(
+    async (req: Request, res: Response): Promise<Response> => {
+      const { tenant } = req as unknown as TenantRequest;
+      const tenantId = tenant.id;
+      const { q, skip = 0, take = 50 } = req.query;
+
+      const products = await this.catalogService.getProducts(tenantId, {
+        search: q as string | undefined,
+        skip: Number(skip),
+        take: Number(take),
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: products,
+      });
+    }
+  );
 }

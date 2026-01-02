@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// POST /cart/items - Add item to cart
+// POST /cart/add - Add item to cart
 export const addCartItemSchema = z.object({
   body: z.object({
     variant_id: z.string().or(z.number()),
@@ -10,23 +10,20 @@ export const addCartItemSchema = z.object({
 
 export type AddCartItemInput = z.infer<typeof addCartItemSchema>['body'];
 
-// PUT /cart/items/:id - Update cart item
+// PUT /cart/update - Update cart item
 export const updateCartItemSchema = z.object({
-  params: z.object({
-    id: z.string(),
-  }),
   body: z.object({
+    item_id: z.string().min(1, 'Item ID is required'),
     quantity: z.number().int().min(1, 'Quantity must be at least 1'),
   }),
 });
 
-export type UpdateCartItemParamsInput = z.infer<typeof updateCartItemSchema>['params'];
 export type UpdateCartItemInput = z.infer<typeof updateCartItemSchema>['body'];
 
-// DELETE /cart/items/:id - Remove cart item
+// DELETE /cart/remove/:itemId - Remove cart item
 export const removeCartItemSchema = z.object({
   params: z.object({
-    id: z.string(),
+    itemId: z.string(),
   }),
 });
 
