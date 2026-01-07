@@ -14,7 +14,13 @@ export function createApp(): Application {
   app.use(helmet());
   app.use(
     cors({
-      origin: config.cors.origin,
+      origin: [
+        config.cors.origin,
+        'capacitor://localhost',
+        'ionic://localhost',
+        'http://localhost:3000',
+        'http://localhost:3001',
+      ],
       credentials: true,
     })
   );
