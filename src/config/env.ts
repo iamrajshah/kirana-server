@@ -64,7 +64,8 @@ export const config = {
     level: env.LOG_LEVEL,
   },
   cors: {
-    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim()) : [],
+    origin: process.env.CORS_ORIGIN,
+    // origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim()) : [],
   },
   storageType: env.STORAGE_TYPE,
   storage: {
