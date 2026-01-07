@@ -14,17 +14,30 @@ export function createApp(): Application {
   app.use(helmet());
   app.use(
     cors({
-      origin: [
-        config.cors.origin,
-        'capacitor://localhost',
-        'ionic://localhost',
-        'http://localhost:3000',
-        'http://localhost:3001',
-      ],
+      origin: (origin, callback) => {
+        // ✅ Mobile apps / APKs often send NO origin
+        if (!origin) {
+          return callback(null, true);
+        }
+
+        const allowedOrigins = [
+          config.cors.origin,
+          'capacitor://localhost',
+          'ionic://localhost',
+          'http://localhost:3000',
+          'http://localhost:3001',
+        ];
+
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+
+        return callback(new Error(`CORS blocked for origin: ${origin}`));
+      },
       credentials: true,
     })
   );
-
+  app.options('*', cors());
   // Rate limiting
   const limiter = rateLimit({
     windowMs: config.rateLimit.windowMs,
@@ -33,7 +46,7 @@ export function createApp(): Application {
     standardHeaders: true,
     legacyHeaders: false,
   });
-  app.use('/api', limiter);
+  app.use('/api/v1', limiter);
 
   // Body parsing middleware
   app.use(express.json({ limit: '10mb' }));
