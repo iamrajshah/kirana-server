@@ -14,27 +14,15 @@ export function createApp(): Application {
   app.use(helmet());
   app.use(
     cors({
-      origin: config.cors.origin,
-      //  (origin, callback) => {
-      //   // ✅ Mobile apps / APKs often send NO origin
-      //   if (!origin) {
-      //     return callback(null, true);
-      //   }
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        const allowedOrigins = config.cors.origin;
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
 
-      //   const allowedOrigins = [
-      //     config.cors.origin,
-      //     'capacitor://localhost',
-      //     'ionic://localhost',
-      //     'http://localhost:3000',
-      //     'http://localhost:3001',
-      //   ];
-
-      //   if (allowedOrigins.includes(origin)) {
-      //     return callback(null, true);
-      //   }
-
-      //   return callback(new Error(`CORS blocked for origin: ${origin}`));
-      // },
+        return callback(new Error(`CORS blocked: ${origin}`));
+      },
       credentials: true,
     })
   );
