@@ -7,7 +7,6 @@ import { errorHandler, notFoundHandler } from '@middlewares/error.middleware';
 import routes from './routes';
 import { logger } from '@utils/logger';
 
-
 export function createApp(): Application {
   const app = express();
 
@@ -15,17 +14,16 @@ export function createApp(): Application {
   app.use(helmet());
   app.use(
     cors({
-      origin: config.cors.origin,
-      // origin: (origin, callback) => {
-      //   if (!origin) return callback(null, true);
-      //   const allowedOrigins = config.cors.origin;
-      //   console.log('Allowed Origin:', allowedOrigins)
-      //   if (allowedOrigins.includes(origin)) {
-      //     return callback(null, true);
-      //   }
+      // origin: config.cors.origin,
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        const allowedOrigins = config.cors.origin;
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
 
-      //   return callback(new Error(`CORS blocked: ${origin}`));
-      // },
+        return callback(new Error(`CORS blocked: ${origin}`));
+      },
       credentials: true,
     })
   );

@@ -40,6 +40,9 @@ function validateEnv(): EnvConfig {
 }
 
 export const env = validateEnv();
+const corsOrigins = env.CORS_ORIGIN
+  ? env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
+  : [];
 
 export const config = {
   env: env.NODE_ENV,
@@ -64,7 +67,7 @@ export const config = {
     level: env.LOG_LEVEL,
   },
   cors: {
-    origin: env.CORS_ORIGIN,
+    origin: corsOrigins,
   },
   storageType: env.STORAGE_TYPE,
   storage: {
