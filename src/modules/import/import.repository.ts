@@ -3,7 +3,7 @@ import { import_jobs, import_job_rows, Prisma } from '@prisma/client';
 
 export interface CreateImportJobData {
   tenant_id: bigint;
-  type: 'CUSTOMER' | 'PRODUCT' | 'INVENTORY' | 'CATEGORY';
+  type: 'CUSTOMER' | 'PRODUCT' | 'INVENTORY' | 'CATEGORY' | 'SUPPLIER';
   file_key: string;
   file_size?: bigint;
   file_mime?: string;

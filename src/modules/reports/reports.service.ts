@@ -1,4 +1,5 @@
 import { ReportsRepository } from './reports.repository';
+import { serializeBigInt } from '@utils/serializeBigInt';
 
 export class ReportsService {
   private reportsRepository: ReportsRepository;
@@ -58,19 +59,19 @@ export class ReportsService {
       0
     );
 
-    return {
+    return serializeBigInt({
       summary: {
         total_customers: customers.length,
         total_outstanding: totalOutstanding,
       },
       customers: customers.map((customer) => ({
-        id: customer.id.toString(),
+        id: customer.id,
         name: customer.name,
         phone: customer.phone,
         email: customer.email,
         outstanding_balance: Number(customer.credit_balance || 0),
       })),
-    };
+    });
   }
 
   /**
@@ -80,7 +81,7 @@ export class ReportsService {
     const summary = await this.reportsRepository.getInventorySummary(tenant_id);
     const stockList = await this.reportsRepository.getInventoryStockList(tenant_id);
 
-    return {
+    return serializeBigInt({
       summary: {
         total_items: summary.totalItems,
         low_stock_items: summary.lowStockItems,
@@ -88,7 +89,7 @@ export class ReportsService {
         total_inventory_value: summary.totalValue,
       },
       items: stockList.map((item) => ({
-        variant_id: item.variant_id.toString(),
+        variant_id: item.variant_id,
         product_name: item.product_variants?.products?.name,
         sku: item.product_variants?.sku,
         brand: item.product_variants?.brand,
@@ -100,7 +101,7 @@ export class ReportsService {
         is_low_stock: (item.quantity ?? 0) <= (item.low_stock_threshold ?? 5),
         is_active: item.product_variants?.products?.is_active ?? false,
       })),
-    };
+    });
   }
 
   /**
@@ -170,9 +171,9 @@ export class ReportsService {
   async getTopSellingProducts(tenant_id: bigint, limit: number = 10) {
     const products = await this.reportsRepository.getTopSellingProducts(tenant_id, limit);
 
-    return {
+    return serializeBigInt({
       products: products.map((product: any) => ({
-        variant_id: product.variant_id?.toString(),
+        variant_id: product.variant_id,
         sku: product.sku,
         product_name: product.product_name,
         brand: product.brand,
@@ -180,7 +181,7 @@ export class ReportsService {
         total_sold: Number(product.total_sold || 0),
         total_revenue: Number(product.total_revenue || 0),
       })),
-    };
+    });
   }
 
   /**
@@ -203,9 +204,9 @@ export class ReportsService {
       minAmount,
     });
 
-    return {
+    return serializeBigInt({
       data: data.map((supplier: any) => ({
-        id: supplier.id?.toString(),
+        id: supplier.id,
         name: supplier.name,
         phone: supplier.phone,
         email: supplier.email,
@@ -219,7 +220,7 @@ export class ReportsService {
         limit,
         totalPages: Math.ceil(total / limit),
       },
-    };
+    });
   }
 
   /**
@@ -246,9 +247,9 @@ export class ReportsService {
       status: filters?.status,
     });
 
-    return {
+    return serializeBigInt({
       data: data.map((purchase: any) => ({
-        id: purchase.id?.toString(),
+        id: purchase.id,
         invoice_number: purchase.invoice_number,
         invoice_date: purchase.invoice_date,
         total_amount: Number(purchase.total_amount || 0),
@@ -272,7 +273,7 @@ export class ReportsService {
         limit,
         totalPages: Math.ceil(total / limit),
       },
-    };
+    });
   }
 
   /**
@@ -297,9 +298,9 @@ export class ReportsService {
       supplierId: filters?.supplierId ? BigInt(filters.supplierId) : undefined,
     });
 
-    return {
+    return serializeBigInt({
       data: data.map((supplier: any) => ({
-        supplier_id: supplier.supplier_id?.toString(),
+        supplier_id: supplier.supplier_id,
         supplier_name: supplier.supplier_name,
         phone: supplier.phone,
         email: supplier.email,
@@ -316,7 +317,7 @@ export class ReportsService {
         limit,
         totalPages: Math.ceil(total / limit),
       },
-    };
+    });
   }
 
   /**
@@ -325,9 +326,9 @@ export class ReportsService {
   async getTopPayables(tenant_id: bigint, limit: number = 10) {
     const data = await this.reportsRepository.getTopPayables(tenant_id, limit);
 
-    return {
+    return serializeBigInt({
       data: data.map((supplier: any) => ({
-        id: supplier.id?.toString(),
+        id: supplier.id,
         name: supplier.name,
         phone: supplier.phone,
         email: supplier.email,
@@ -336,7 +337,7 @@ export class ReportsService {
         latest_invoice_date: supplier.latest_invoice_date,
         last_transaction_date: supplier.last_transaction_date,
       })),
-    };
+    });
   }
 
   /**
@@ -381,11 +382,11 @@ export class ReportsService {
       }
     );
 
-    return {
+    return serializeBigInt({
       data: data.map((entry: any) => ({
-        id: entry.id?.toString(),
+        id: entry.id,
         ref_type: entry.ref_type,
-        ref_id: entry.ref_id?.toString(),
+        ref_id: entry.ref_id,
         credit: Number(entry.credit || 0),
         debit: Number(entry.debit || 0),
         balance: Number(entry.balance || 0),
@@ -401,6 +402,6 @@ export class ReportsService {
         limit,
         totalPages: Math.ceil(total / limit),
       },
-    };
+    });
   }
 }

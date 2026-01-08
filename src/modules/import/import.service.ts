@@ -58,7 +58,7 @@ export class ImportService {
   async createImportJob(
     tenantId: bigint,
     userId: bigint,
-    type: 'CUSTOMER' | 'PRODUCT' | 'INVENTORY' | 'CATEGORY',
+    type: 'CUSTOMER' | 'PRODUCT' | 'INVENTORY' | 'CATEGORY' | 'SUPPLIER',
     fileKey: string,
     fileSize: bigint,
     fileMime: string,
@@ -220,6 +220,9 @@ export class ImportService {
         case 'CATEGORY':
           error = await this.validateCategoryRow(data, tenantId);
           break;
+        case 'SUPPLIER':
+          error = await this.validateSupplierRow(data, tenantId);
+          break;
       }
 
       await this.repository.updateRow(row.id, {
@@ -349,6 +352,41 @@ export class ImportService {
     const existing = await this.categoryRepo.findByName(data.name, tenantId);
     if (existing) {
       return `Category '${data.name}' already exists`;
+    }
+
+    return null;
+  }
+
+  /**
+   * Validate supplier row
+   */
+  private async validateSupplierRow(
+    data: any,
+    tenantId: bigint
+  ): Promise<string | null> {
+    // Required fields
+    if (!data.name) {
+      return 'Supplier name is required';
+    }
+
+    // Validate phone format if provided
+    if (data.phone && !/^\d{10,20}$/.test(data.phone)) {
+      return 'Phone must be 10-20 digits';
+    }
+
+    // Check duplicate phone if provided
+    if (data.phone) {
+      const existing = await prisma.suppliers.findFirst({
+        where: { phone: data.phone, tenant_id: tenantId },
+      });
+      if (existing) {
+        return `Supplier with phone ${data.phone} already exists`;
+      }
+    }
+
+    // Validate email if provided
+    if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+      return 'Invalid email format';
     }
 
     return null;
@@ -504,6 +542,9 @@ export class ImportService {
       case 'CATEGORY':
         await this.importCategoryRow(data, tenantId, userId);
         break;
+      case 'SUPPLIER':
+        await this.importSupplierRow(data, tenantId, userId);
+        break;
     }
   }
 
@@ -619,6 +660,11 @@ export class ImportService {
         throw new Error(`Variant with SKU ${data.sku} already exists`);
       }
 
+      // Determine selling price (use selling_price if provided, else use price)
+      const sellingPrice = data.selling_price ? Number(data.selling_price) : Number(data.price);
+      const mrpPrice = data.mrp_price ? Number(data.mrp_price) : sellingPrice * 1.1;
+      const gstPercent = data.gst_percent ? Number(data.gst_percent) : 5.0;
+
       // Create variant
       const variant = await tx.product_variants.create({
         data: {
@@ -628,17 +674,59 @@ export class ImportService {
           size: data.size || null,
           packaging: data.packaging?.toUpperCase() || null,
           price: Number(data.price),
+          selling_price: sellingPrice,
+          mrp_price: mrpPrice,
+          gst_percent: gstPercent,
           sku: data.sku,
+          image_url: data.image_url || null,
           is_active: true,
         },
       });
 
-      AuditLogger.create(tenantId, userId, 'product_variant', variant.id, {
-        product_id: product.id,
-        sku: data.sku,
-        price: data.price,
-        source: 'import',
-      });
+      AuditLogger.create(
+        tenantId,
+        userId,
+        'product_variant',
+        variant.id,
+        {
+          product_id: product.id,
+          sku: data.sku,
+          price: data.price,
+          selling_price: sellingPrice,
+          source: 'import',
+        }
+      );
+
+      // Create or update inventory if quantity provided
+      if (data.quantity !== undefined && data.quantity !== null) {
+        const quantity = Number(data.quantity);
+        const lowStockThreshold = data.low_stock_threshold 
+          ? Number(data.low_stock_threshold) 
+          : 5;
+
+        const existingInventory = await tx.inventory.findFirst({
+          where: { variant_id: variant.id },
+        });
+
+        if (existingInventory) {
+          await tx.inventory.update({
+            where: { variant_id: variant.id },
+            data: {
+              quantity,
+              low_stock_threshold: lowStockThreshold,
+            },
+          });
+        } else {
+          await tx.inventory.create({
+            data: {
+              tenant_id: tenantId,
+              variant_id: variant.id,
+              quantity,
+              low_stock_threshold: lowStockThreshold,
+            },
+          });
+        }
+      }
     });
   }
 
@@ -708,6 +796,44 @@ export class ImportService {
       name: data.name,
       source: 'import',
     });
+  }
+
+  /**
+   * Import supplier row
+   */
+  private async importSupplierRow(
+    data: any,
+    tenantId: bigint,
+    userId: bigint
+  ): Promise<void> {
+    // Check duplicate phone again (idempotency)
+    if (data.phone) {
+      const existing = await prisma.suppliers.findFirst({
+        where: { phone: data.phone, tenant_id: tenantId },
+      });
+      if (existing) {
+        throw new Error(`Supplier with phone ${data.phone} already exists`);
+      }
+    }
+
+    const supplier = await prisma.suppliers.create({
+      data: {
+        tenant_id: tenantId,
+        name: data.name,
+        phone: data.phone || null,
+        email: data.email || null,
+        address: data.address || null,
+        is_active: true,
+      },
+    });
+
+    AuditLogger.create(
+      tenantId,
+      userId,
+      'supplier',
+      supplier.id,
+      { name: data.name, phone: data.phone, source: 'import' }
+    );
   }
 
   /**

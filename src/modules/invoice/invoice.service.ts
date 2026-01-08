@@ -3,6 +3,7 @@ import { InventoryRepository } from '../inventory/inventory.repository';
 import { NotFoundError, BadRequestError } from '@utils/errors';
 import { prisma } from '@config/database';
 import { AuditLogger } from '@utils/auditLogger';
+import { serializeBigInt } from '@utils/serializeBigInt';
 
 export class InvoiceService {
   private invoiceRepository: InvoiceRepository;
@@ -765,12 +766,12 @@ export class InvoiceService {
    * Format invoice response
    */
   private formatInvoiceResponse(invoice: any) {
-    return {
-      id: invoice.id.toString(),
+    return serializeBigInt({
+      id: invoice.id,
       invoice_number: invoice.invoice_number,
       customer: invoice.customers
         ? {
-            id: invoice.customers.id.toString(),
+            id: invoice.customers.id,
             name: invoice.customers.name,
             phone: invoice.customers.phone,
             email: invoice.customers.email,
@@ -778,24 +779,24 @@ export class InvoiceService {
         : null,
       items: invoice.invoice_items
         ? invoice.invoice_items.map((item: any) => ({
-            id: item.id.toString(),
-            variant_id: item.variant_id.toString(),
+            id: item.id,
+            variant_id: item.variant_id,
             quantity: item.quantity,
-            unit_price: item.unit_price, // Price per unit (original or overridden)
-            discount_amount: item.discount_amount || 0, // Item-level discount
-            final_price: item.final_price, // Final price after discount
-            price: item.price, // Total line price (for backward compatibility)
-            total: item.final_price, // Use final_price as total
+            unit_price: item.unit_price,
+            discount_amount: item.discount_amount || 0,
+            final_price: item.final_price,
+            price: item.price,
+            total: item.final_price,
             variant: item.product_variants
               ? {
-                  id: item.product_variants.id.toString(),
+                  id: item.product_variants.id,
                   sku: item.product_variants.sku,
                   price: item.product_variants.price,
                   selling_price: item.product_variants.selling_price,
                   mrp_price: item.product_variants.mrp_price,
                   product: item.product_variants.products
                     ? {
-                        id: item.product_variants.products.id.toString(),
+                        id: item.product_variants.products.id,
                         name: item.product_variants.products.name,
                       }
                     : null,
@@ -803,8 +804,8 @@ export class InvoiceService {
               : null,
           }))
         : [],
-      subtotal_amount: invoice.subtotal_amount, // Amount before discounts and GST
-      discount_amount: invoice.discount_amount || 0, // Total discount (items + bill-level)
+      subtotal_amount: invoice.subtotal_amount,
+      discount_amount: invoice.discount_amount || 0,
       gst_amount: invoice.gst_amount || 0,
       total_amount: invoice.total_amount,
       paid_amount: invoice.paid_amount || 0,
@@ -814,7 +815,7 @@ export class InvoiceService {
       created_at: invoice.created_at,
       finalized_at: invoice.finalized_at,
       cancelled_at: invoice.cancelled_at,
-    };
+    });
   }
 
   /**
@@ -844,23 +845,148 @@ export class InvoiceService {
       },
     });
 
-    return invoices.map((invoice) => ({
-      id: invoice.id.toString(),
-      invoice_number: invoice.invoice_number,
-      customer: invoice.customers
-        ? {
-            id: invoice.customers.id.toString(),
-            name: invoice.customers.name,
-            phone: invoice.customers.phone,
-            email: invoice.customers.email,
-          }
-        : null,
-      total_amount: invoice.total_amount,
-      paid_amount: invoice.paid_amount || 0,
-      balance_amount: Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0),
-      status: invoice.status,
-      created_at: invoice.created_at,
-      finalized_at: invoice.finalized_at,
+    return serializeBigInt(
+      invoices.map((invoice) => ({
+        id: invoice.id,
+        invoice_number: invoice.invoice_number,
+        customer: invoice.customers
+          ? {
+              id: invoice.customers.id,
+              name: invoice.customers.name,
+              phone: invoice.customers.phone,
+              email: invoice.customers.email,
+            }
+          : null,
+        total_amount: invoice.total_amount,
+        paid_amount: invoice.paid_amount || 0,
+        balance_amount: Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0),
+        status: invoice.status,
+        created_at: invoice.created_at,
+        finalized_at: invoice.finalized_at,
+      }))
+    );
+  }
+
+  /**
+   * Get invoice by order ID
+   */
+  async getInvoiceByOrderId(_order_id: bigint, _tenant_id: bigint) {
+    // Note: Invoice table doesn't have order_id in schema
+    // This method returns null for now
+    // TODO: Add order_id to invoice schema or use different approach
+    return null;
+  }
+
+  /**
+   * Create invoice from order
+   */
+  async createInvoiceFromOrder(order_id: bigint, tenant_id: bigint, created_by: bigint) {
+    // Fetch order using raw SQL
+    const orderResult = await prisma.$queryRaw<any[]>`
+      SELECT id, customer_id, total_amount
+      FROM orders
+      WHERE id = ${order_id} AND tenant_id = ${tenant_id}
+      LIMIT 1
+    `;
+
+    if (!orderResult || orderResult.length === 0) {
+      throw new NotFoundError('Order not found');
+    }
+
+    const order = orderResult[0];
+
+    // Get order items using raw SQL
+    const orderItems = await prisma.$queryRaw<any[]>`
+      SELECT variant_id, quantity, unit_price
+      FROM order_items
+      WHERE order_id = ${order_id}
+    `;
+
+    const items = orderItems.map((item: any) => ({
+      variant_id: item.variant_id.toString(),
+      quantity: Number(item.quantity),
+      price: Number(item.unit_price),
     }));
+
+    return this.createInvoice(
+      tenant_id,
+      order.customer_id,
+      items,
+      0, // gst_amount
+      undefined, // invoice_url
+      created_by,
+      `order-${order_id}`, // idempotency key
+      0, // discount_amount
+      'DRAFT'
+    );
+  }
+
+  /**
+   * Update invoice items only (for DRAFT invoices)
+   */
+  async updateInvoiceItemsOnly(
+    invoice_id: bigint,
+    tenant_id: bigint,
+    items: Array<{ variant_id: string; quantity: number; price?: number }>,
+  ) {
+    const invoice = await prisma.invoice.findFirst({
+      where: {
+        id: invoice_id,
+        tenant_id,
+      },
+    });
+
+    if (!invoice) {
+      throw new NotFoundError('Invoice not found');
+    }
+
+    if (invoice.status !== 'DRAFT') {
+      throw new BadRequestError('Can only update items for DRAFT invoices');
+    }
+
+    // Delete existing items and create new ones
+    await prisma.$transaction(async (tx) => {
+      await tx.invoiceItem.deleteMany({
+        where: { invoice_id },
+      });
+
+      let total_amount = 0;
+
+      for (const item of items) {
+        const variant_id = BigInt(item.variant_id);
+        const variant = await tx.product_variants.findFirst({
+          where: { id: variant_id },
+        });
+
+        if (!variant) {
+          throw new NotFoundError(`Variant ${item.variant_id} not found`);
+        }
+
+        const unit_price = item.price !== undefined ? item.price : Number(variant.selling_price || 0);
+        const final_price = unit_price * item.quantity;
+
+        await tx.invoiceItem.create({
+          data: {
+            invoice_id,
+            variant_id,
+            quantity: item.quantity,
+            unit_price,
+            final_price,
+          } as any,
+        });
+
+        total_amount += final_price;
+      }
+
+      await tx.invoice.update({
+        where: { id: invoice_id },
+        data: {
+          total_amount,
+          updated_at: new Date(),
+        } as any,
+      });
+    });
+
+    return this.getInvoiceById(invoice_id, tenant_id);
   }
 }

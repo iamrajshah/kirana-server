@@ -14,13 +14,25 @@ import dashboardRoutes from '@modules/dashboard/dashboard.routes';
 import supplierRoutes from '@modules/supplier/supplier.routes';
 import purchaseRoutes from '@modules/purchase/purchase.routes';
 
+// Customer-facing routes
+import customerAuthRoutes from '@modules/customer-auth/customer-auth.routes';
+import catalogRoutes from '@modules/catalog/catalog.routes';
+import cartRoutes from '@modules/cart/cart.routes';
+import orderRoutes from '@modules/order/order.routes';
+
 const router = Router();
 
 // API version 1 routes
 // Public routes
 router.use('/auth', authRoutes);
 
-// Protected routes
+// Customer-facing public/protected routes
+router.use('/customer-auth', customerAuthRoutes);
+router.use('/catalog', catalogRoutes);
+router.use('/cart', cartRoutes);
+router.use('/orders', orderRoutes);
+
+// Protected POS routes
 router.use('/dashboard', dashboardRoutes);
 router.use('/users', userRoutes);
 router.use('/customers', customerRoutes);
