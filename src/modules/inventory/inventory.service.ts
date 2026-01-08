@@ -69,7 +69,10 @@ export class InventoryService {
    * Get inventory by variant ID
    */
   async getInventoryByVariant(variant_id: bigint, tenant_id: bigint) {
-    const inventory = await this.inventoryRepository.findByVariantIdAndTenant(variant_id, tenant_id);
+    const inventory = await this.inventoryRepository.findByVariantIdAndTenant(
+      variant_id,
+      tenant_id
+    );
 
     if (!inventory) {
       throw new NotFoundError('Inventory not found for this variant');
@@ -113,7 +116,10 @@ export class InventoryService {
     }
 
     // Check if inventory exists
-    const existingInventory = await this.inventoryRepository.findByVariantIdAndTenant(variant_id, tenant_id);
+    const existingInventory = await this.inventoryRepository.findByVariantIdAndTenant(
+      variant_id,
+      tenant_id
+    );
 
     let inventory;
     if (existingInventory) {
@@ -140,7 +146,12 @@ export class InventoryService {
         BigInt(userId),
         'inventory',
         variant_id,
-        existingInventory ? { quantity: existingInventory.quantity, low_stock_threshold: existingInventory.low_stock_threshold } : null,
+        existingInventory
+          ? {
+              quantity: existingInventory.quantity,
+              low_stock_threshold: existingInventory.low_stock_threshold,
+            }
+          : null,
         { quantity, low_stock_threshold: low_stock_threshold || inventory.low_stock_threshold }
       );
     }
@@ -157,7 +168,13 @@ export class InventoryService {
    * Adjust inventory (increment/decrement)
    * Only OWNER and MANAGER can adjust inventory
    */
-  async adjustInventory(variant_id: bigint, tenant_id: bigint, adjustment: number, reason?: string, userId?: string) {
+  async adjustInventory(
+    variant_id: bigint,
+    tenant_id: bigint,
+    adjustment: number,
+    reason?: string,
+    userId?: string
+  ) {
     // Validate variant exists and belongs to tenant
     const variant = await prisma.product_variants.findFirst({
       where: {
@@ -172,7 +189,10 @@ export class InventoryService {
       throw new NotFoundError('Variant not found');
     }
 
-    const existingInventory = await this.inventoryRepository.findByVariantIdAndTenant(variant_id, tenant_id);
+    const existingInventory = await this.inventoryRepository.findByVariantIdAndTenant(
+      variant_id,
+      tenant_id
+    );
 
     if (!existingInventory) {
       throw new NotFoundError('Inventory not found for this variant');
@@ -187,7 +207,11 @@ export class InventoryService {
       );
     }
 
-    const inventory = await this.inventoryRepository.updateQuantity(variant_id, tenant_id, newQuantity);
+    const inventory = await this.inventoryRepository.updateQuantity(
+      variant_id,
+      tenant_id,
+      newQuantity
+    );
 
     // Audit log (only if userId is available)
     if (userId) {

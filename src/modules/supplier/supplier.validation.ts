@@ -37,10 +37,12 @@ export const addOpeningBalanceSchema = z.object({
     id: z.string().min(1, 'Supplier ID is required'),
   }),
   body: z.object({
-    amount: z.number({
-      required_error: 'Amount is required',
-      invalid_type_error: 'Amount must be a number',
-    }).positive('Amount must be positive'),
+    amount: z
+      .number({
+        required_error: 'Amount is required',
+        invalid_type_error: 'Amount must be a number',
+      })
+      .positive('Amount must be positive'),
   }),
 });
 
@@ -59,10 +61,12 @@ export const makePaymentSchema = z.object({
     id: z.string().min(1, 'Supplier ID is required'),
   }),
   body: z.object({
-    amount: z.number({
-      required_error: 'Amount is required',
-      invalid_type_error: 'Amount must be a number',
-    }).positive('Amount must be positive'),
+    amount: z
+      .number({
+        required_error: 'Amount is required',
+        invalid_type_error: 'Amount must be a number',
+      })
+      .positive('Amount must be positive'),
     payment_mode: z.enum(['CASH', 'UPI', 'CARD', 'BANK'], {
       required_error: 'Payment mode is required',
     }),

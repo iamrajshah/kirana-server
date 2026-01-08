@@ -47,10 +47,12 @@ export const createVariantSchema = z.object({
     brand: z.string().max(100).optional().nullable(),
     size: z.string().max(50).optional().nullable(),
     packaging: z.enum(['PACKET', 'BOX', 'BOTTLE', 'LOOSE', 'KG']).optional().nullable(),
-    price: z.number({
-      required_error: 'Price is required',
-      invalid_type_error: 'Price must be a number',
-    }).min(0, 'Price must be non-negative'),
+    price: z
+      .number({
+        required_error: 'Price is required',
+        invalid_type_error: 'Price must be a number',
+      })
+      .min(0, 'Price must be non-negative'),
     selling_price: z.number().min(0).optional().nullable(),
     gst_percent: z.number().min(0).max(100).optional().nullable(),
     sku: z.string().max(50).optional().nullable(),

@@ -62,15 +62,7 @@ export class SupplierService {
       ...data,
     });
 
-    AuditLogger.create(
-      tenantId,
-      userId,
-      'SUPPLIER',
-      supplier.id,
-      supplier,
-      ip,
-      userAgent
-    );
+    AuditLogger.create(tenantId, userId, 'SUPPLIER', supplier.id, supplier, ip, userAgent);
 
     return this.formatSupplierResponse(supplier);
   }
@@ -87,7 +79,7 @@ export class SupplierService {
     }
   ) {
     const result = await this.repository.findAll(tenantId, options);
-    
+
     // Get balances for all suppliers
     const suppliersWithBalance = await Promise.all(
       result.suppliers.map(async (supplier) => {
@@ -95,7 +87,7 @@ export class SupplierService {
         return this.formatSupplierResponse(supplier, balance);
       })
     );
-    
+
     return {
       suppliers: suppliersWithBalance,
       pagination: result.pagination,
@@ -147,16 +139,7 @@ export class SupplierService {
 
     const updated = await this.repository.update(id, tenantId, data);
 
-    AuditLogger.update(
-      tenantId,
-      userId,
-      'SUPPLIER',
-      id,
-      supplier,
-      updated,
-      ip,
-      userAgent
-    );
+    AuditLogger.update(tenantId, userId, 'SUPPLIER', id, supplier, updated, ip, userAgent);
 
     return this.formatSupplierResponse(updated);
   }
@@ -291,7 +274,7 @@ export class SupplierService {
     );
 
     return {
-      entries: result.entries.map(entry => this.formatLedgerResponse(entry)),
+      entries: result.entries.map((entry) => this.formatLedgerResponse(entry)),
       summary,
     };
   }

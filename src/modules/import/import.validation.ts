@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const createImportJobSchema = z.object({
   body: z.object({
-    type: z.enum(['CUSTOMER', 'PRODUCT', 'INVENTORY', 'CATEGORY'], {
+    type: z.enum(['CUSTOMER', 'PRODUCT', 'INVENTORY', 'CATEGORY', 'SUPPLIER'], {
       required_error: 'Import type is required',
     }),
     autoCreateCategories: z.boolean().optional().default(false),
@@ -25,14 +25,14 @@ export const getImportJobsSchema = z.object({
   query: z.object({
     page: z.string().regex(/^\d+$/).optional().default('1'),
     limit: z.string().regex(/^\d+$/).optional().default('20'),
-    type: z.enum(['CUSTOMER', 'PRODUCT', 'INVENTORY', 'CATEGORY']).optional(),
+    type: z.enum(['CUSTOMER', 'PRODUCT', 'INVENTORY', 'CATEGORY', 'SUPPLIER']).optional(),
     status: z.enum(['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED']).optional(),
   }),
 });
 
 export const exportDataSchema = z.object({
   body: z.object({
-    type: z.enum(['CUSTOMER', 'PRODUCT', 'INVENTORY', 'CATEGORY'], {
+    type: z.enum(['CUSTOMER', 'PRODUCT', 'INVENTORY', 'CATEGORY', 'SUPPLIER'], {
       required_error: 'Export type is required',
     }),
     format: z.enum(['CSV', 'EXCEL']).optional().default('CSV'),

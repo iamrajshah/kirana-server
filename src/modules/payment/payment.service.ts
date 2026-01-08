@@ -120,137 +120,138 @@ export class PaymentService {
     }
 
     // Use Prisma transaction for atomicity with increased timeout
-    const payment = await prisma.$transaction(async (tx) => {
-      // Step 1: Create payment with idempotency key
-      const payment = await tx.payment.create({
-        data: {
-          tenant_id,
-          customer_id,
-          invoice_id: allocations.length === 1 ? allocations[0].invoice_id : undefined, // Legacy single invoice support
-          amount,
-          payment_mode,
-          reference_note,
-          idempotency_key, // Store idempotency key (can be null)
-        },
-      });
-
-      // Step 2: Create ledger entry (negative amount for payment)
-      await tx.customer_ledger.create({
-        data: {
-          customer_id,
-          tenant_id,
-          entry_type: 'PAYMENT',
-          amount: -amount, // Negative because it reduces the balance
-          reference_id: payment.id,
-          description:
-            allocations.length > 0
-              ? `Payment for ${allocations.length} invoice(s)`
-              : `Payment received - ${payment_mode}`,
-          created_by,
-        },
-      });
-
-      // Step 3: Update customer balance with optimistic locking
-      const currentCustomer = await tx.customer.findUnique({
-        where: { id: customer_id },
-      });
-
-      if (!currentCustomer) {
-        throw new NotFoundError('Customer not found');
-      }
-
-      const customerVersion = currentCustomer.version;
-
-      const updatedCustomer = await tx.customer.updateMany({
-        where: {
-          id: customer_id,
-          version: customerVersion, // Only update if version hasn't changed
-        },
-        data: {
-          credit_balance: {
-            decrement: amount,
-          },
-          version: {
-            increment: 1,
-          },
-        },
-      });
-
-      // If no rows updated, version conflict
-      if (updatedCustomer.count === 0) {
-        throw new Error(
-          'Customer balance update failed due to concurrent modification. Please retry the operation.'
-        );
-      }
-
-      // Step 4: Process invoice allocations and update invoice statuses
-      for (const allocation of allocations) {
-        const invoice = await tx.invoice.findUnique({
-          where: { id: allocation.invoice_id },
-        });
-
-        if (!invoice) {
-          throw new NotFoundError(`Invoice ${allocation.invoice_id} not found`);
-        }
-
-        // Create invoice_payment junction record
-        await tx.invoice_payments.create({
+    const payment = await prisma.$transaction(
+      async (tx) => {
+        // Step 1: Create payment with idempotency key
+        const payment = await tx.payment.create({
           data: {
             tenant_id,
-            invoice_id: allocation.invoice_id,
-            payment_id: payment.id,
-            amount: allocation.amount,
+            customer_id,
+            invoice_id: allocations.length === 1 ? allocations[0].invoice_id : undefined, // Legacy single invoice support
+            amount,
+            payment_mode,
+            reference_note,
+            idempotency_key, // Store idempotency key (can be null)
           },
         });
 
-        // Recalculate invoice status based on payment
-        const currentPaidAmount = Number(invoice.paid_amount || 0);
-        const newPaidAmount = currentPaidAmount + allocation.amount;
-        const totalAmount = Number(invoice.total_amount || 0);
+        // Step 2: Create ledger entry (negative amount for payment)
+        await tx.customer_ledger.create({
+          data: {
+            customer_id,
+            tenant_id,
+            entry_type: 'PAYMENT',
+            amount: -amount, // Negative because it reduces the balance
+            reference_id: payment.id,
+            description:
+              allocations.length > 0
+                ? `Payment for ${allocations.length} invoice(s)`
+                : `Payment received - ${payment_mode}`,
+            created_by,
+          },
+        });
 
-        // Determine new invoice status based on recalculated amounts
-        let newStatus: 'DRAFT' | 'FINALIZED' | 'UNPAID' | 'PARTIAL' | 'PAID' | 'CANCELLED' =
-          invoice.status as any;
+        // Step 3: Update customer balance with optimistic locking
+        const currentCustomer = await tx.customer.findUnique({
+          where: { id: customer_id },
+        });
 
-        if (newPaidAmount >= totalAmount) {
-          newStatus = 'PAID';
-        } else if (newPaidAmount > 0 && newPaidAmount < totalAmount) {
-          newStatus = 'PARTIAL';
-        } else if (newPaidAmount === 0 && invoice.status !== 'DRAFT' && invoice.status !== 'CANCELLED') {
-          newStatus = 'UNPAID';
+        if (!currentCustomer) {
+          throw new NotFoundError('Customer not found');
         }
 
-        // Update invoice with new paid amount and recalculated status
-        await tx.invoice.update({
-          where: { id: allocation.invoice_id },
+        const customerVersion = currentCustomer.version;
+
+        const updatedCustomer = await tx.customer.updateMany({
+          where: {
+            id: customer_id,
+            version: customerVersion, // Only update if version hasn't changed
+          },
           data: {
-            paid_amount: newPaidAmount,
-            status: newStatus,
+            credit_balance: {
+              decrement: amount,
+            },
+            version: {
+              increment: 1,
+            },
           },
         });
-      }
 
-      return payment;
-    }, {
-      maxWait: 10000,
-      timeout: 30000,
-    });
+        // If no rows updated, version conflict
+        if (updatedCustomer.count === 0) {
+          throw new Error(
+            'Customer balance update failed due to concurrent modification. Please retry the operation.'
+          );
+        }
 
-    // Audit log
-    AuditLogger.create(
-      tenant_id,
-      created_by,
-      'payment',
-      payment.id,
+        // Step 4: Process invoice allocations and update invoice statuses
+        for (const allocation of allocations) {
+          const invoice = await tx.invoice.findUnique({
+            where: { id: allocation.invoice_id },
+          });
+
+          if (!invoice) {
+            throw new NotFoundError(`Invoice ${allocation.invoice_id} not found`);
+          }
+
+          // Create invoice_payment junction record
+          await tx.invoice_payments.create({
+            data: {
+              tenant_id,
+              invoice_id: allocation.invoice_id,
+              payment_id: payment.id,
+              amount: allocation.amount,
+            },
+          });
+
+          // Recalculate invoice status based on payment
+          const currentPaidAmount = Number(invoice.paid_amount || 0);
+          const newPaidAmount = currentPaidAmount + allocation.amount;
+          const totalAmount = Number(invoice.total_amount || 0);
+
+          // Determine new invoice status based on recalculated amounts
+          let newStatus: 'DRAFT' | 'FINALIZED' | 'UNPAID' | 'PARTIAL' | 'PAID' | 'CANCELLED' =
+            invoice.status as any;
+
+          if (newPaidAmount >= totalAmount) {
+            newStatus = 'PAID';
+          } else if (newPaidAmount > 0 && newPaidAmount < totalAmount) {
+            newStatus = 'PARTIAL';
+          } else if (
+            newPaidAmount === 0 &&
+            invoice.status !== 'DRAFT' &&
+            invoice.status !== 'CANCELLED'
+          ) {
+            newStatus = 'UNPAID';
+          }
+
+          // Update invoice with new paid amount and recalculated status
+          await tx.invoice.update({
+            where: { id: allocation.invoice_id },
+            data: {
+              paid_amount: newPaidAmount,
+              status: newStatus,
+            },
+          });
+        }
+
+        return payment;
+      },
       {
-        customer_id: customer_id.toString(),
-        amount,
-        payment_mode,
-        invoice_id: invoice_id || null,
-        reference_note: reference_note || null,
-        idempotency_key: idempotency_key || null,
+        maxWait: 10000,
+        timeout: 30000,
       }
     );
+
+    // Audit log
+    AuditLogger.create(tenant_id, created_by, 'payment', payment.id, {
+      customer_id: customer_id.toString(),
+      amount,
+      payment_mode,
+      invoice_id: invoice_id || null,
+      reference_note: reference_note || null,
+      idempotency_key: idempotency_key || null,
+    });
 
     // Fetch the created payment with all details
     return this.getPaymentById(payment.id, tenant_id);
@@ -298,7 +299,11 @@ export class PaymentService {
       take?: number;
     }
   ) {
-    const { payments, total } = await this.paymentRepository.findByCustomerId(customer_id, tenant_id, options);
+    const { payments, total } = await this.paymentRepository.findByCustomerId(
+      customer_id,
+      tenant_id,
+      options
+    );
 
     return {
       payments: payments.map((payment) => this.formatPaymentResponse(payment)),

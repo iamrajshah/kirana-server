@@ -58,7 +58,7 @@ export class ImportService {
   async createImportJob(
     tenantId: bigint,
     userId: bigint,
-    type: 'CUSTOMER' | 'PRODUCT' | 'INVENTORY' | 'CATEGORY',
+    type: 'CUSTOMER' | 'PRODUCT' | 'INVENTORY' | 'CATEGORY' | 'SUPPLIER',
     fileKey: string,
     fileSize: bigint,
     fileMime: string,
@@ -114,7 +114,7 @@ export class ImportService {
     autoCreateCategories: boolean
   ): Promise<void> {
     const storage = getFileStorage();
-    
+
     try {
       // Update status to PROCESSING
       await this.repository.updateJob(jobId, { status: 'PROCESSING' });
@@ -220,6 +220,9 @@ export class ImportService {
         case 'CATEGORY':
           error = await this.validateCategoryRow(data, tenantId);
           break;
+        case 'SUPPLIER':
+          error = await this.validateSupplierRow(data, tenantId);
+          break;
       }
 
       await this.repository.updateRow(row.id, {
@@ -237,10 +240,7 @@ export class ImportService {
   /**
    * Validate customer row
    */
-  private async validateCustomerRow(
-    data: any,
-    tenantId: bigint
-  ): Promise<string | null> {
+  private async validateCustomerRow(data: any, tenantId: bigint): Promise<string | null> {
     // Required fields
     if (!data.name || !data.phone) {
       return 'Name and phone are required';
@@ -314,10 +314,7 @@ export class ImportService {
   /**
    * Validate inventory row
    */
-  private async validateInventoryRow(
-    data: any,
-    tenantId: bigint
-  ): Promise<string | null> {
+  private async validateInventoryRow(data: any, tenantId: bigint): Promise<string | null> {
     // Required fields
     if (!data.sku || !data.quantity) {
       return 'SKU and quantity are required';
@@ -335,10 +332,7 @@ export class ImportService {
     }
 
     // Validate low stock threshold if provided
-    if (
-      data.low_stock_threshold &&
-      isNaN(Number(data.low_stock_threshold))
-    ) {
+    if (data.low_stock_threshold && isNaN(Number(data.low_stock_threshold))) {
       return 'Low stock threshold must be a number';
     }
 
@@ -348,10 +342,7 @@ export class ImportService {
   /**
    * Validate category row
    */
-  private async validateCategoryRow(
-    data: any,
-    tenantId: bigint
-  ): Promise<string | null> {
+  private async validateCategoryRow(data: any, tenantId: bigint): Promise<string | null> {
     // Required fields
     if (!data.name) {
       return 'Category name is required';
@@ -367,12 +358,44 @@ export class ImportService {
   }
 
   /**
+   * Validate supplier row
+   */
+  private async validateSupplierRow(
+    data: any,
+    tenantId: bigint
+  ): Promise<string | null> {
+    // Required fields
+    if (!data.name) {
+      return 'Supplier name is required';
+    }
+
+    // Validate phone format if provided
+    if (data.phone && !/^\d{10,20}$/.test(data.phone)) {
+      return 'Phone must be 10-20 digits';
+    }
+
+    // Check duplicate phone if provided
+    if (data.phone) {
+      const existing = await prisma.suppliers.findFirst({
+        where: { phone: data.phone, tenant_id: tenantId },
+      });
+      if (existing) {
+        return `Supplier with phone ${data.phone} already exists`;
+      }
+    }
+
+    // Validate email if provided
+    if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+      return 'Invalid email format';
+    }
+
+    return null;
+  }
+
+  /**
    * Get import job details
    */
-  async getImportJob(
-    jobId: bigint,
-    tenantId: bigint
-  ): Promise<ImportJobDetailResponse> {
+  async getImportJob(jobId: bigint, tenantId: bigint): Promise<ImportJobDetailResponse> {
     const job = await this.repository.findJobWithRows(jobId, tenantId);
     if (!job) {
       throw new NotFoundError('Import job not found');
@@ -416,10 +439,7 @@ export class ImportService {
     jobs: ImportJobResponse[];
     pagination: { page: number; limit: number; total: number; pages: number };
   }> {
-    const { jobs, total } = await this.repository.findAllByTenant(
-      tenantId,
-      options
-    );
+    const { jobs, total } = await this.repository.findAllByTenant(tenantId, options);
 
     const jobResponses = await Promise.all(
       jobs.map(async (job) => {
@@ -522,17 +542,16 @@ export class ImportService {
       case 'CATEGORY':
         await this.importCategoryRow(data, tenantId, userId);
         break;
+      case 'SUPPLIER':
+        await this.importSupplierRow(data, tenantId, userId);
+        break;
     }
   }
 
   /**
    * Import customer row
    */
-  private async importCustomerRow(
-    data: any,
-    tenantId: bigint,
-    userId: bigint
-  ): Promise<void> {
+  private async importCustomerRow(data: any, tenantId: bigint, userId: bigint): Promise<void> {
     return prisma.$transaction(async (tx) => {
       // Check again for duplicates (idempotency)
       const existing = await tx.customer.findFirst({
@@ -578,24 +597,18 @@ export class ImportService {
       }
 
       // Audit log
-      AuditLogger.create(
-        tenantId,
-        userId,
-        'customer',
-        customer.id,
-        { name: data.name, phone: data.phone, source: 'import' }
-      );
+      AuditLogger.create(tenantId, userId, 'customer', customer.id, {
+        name: data.name,
+        phone: data.phone,
+        source: 'import',
+      });
     });
   }
 
   /**
    * Import product row (creates product and variant)
    */
-  private async importProductRow(
-    data: any,
-    tenantId: bigint,
-    userId: bigint
-  ): Promise<void> {
+  private async importProductRow(data: any, tenantId: bigint, userId: bigint): Promise<void> {
     return prisma.$transaction(async (tx) => {
       // Get or create category
       let category = await tx.categories.findFirst({
@@ -611,13 +624,10 @@ export class ImportService {
           },
         });
 
-        AuditLogger.create(
-          tenantId,
-          userId,
-          'category',
-          category.id,
-          { name: data.category_name, source: 'auto_import' }
-        );
+        AuditLogger.create(tenantId, userId, 'category', category.id, {
+          name: data.category_name,
+          source: 'auto_import',
+        });
       }
 
       // Check if product exists
@@ -635,13 +645,11 @@ export class ImportService {
           },
         });
 
-        AuditLogger.create(
-          tenantId,
-          userId,
-          'product',
-          product.id,
-          { name: data.product_name, category_id: category.id, source: 'import' }
-        );
+        AuditLogger.create(tenantId, userId, 'product', product.id, {
+          name: data.product_name,
+          category_id: category.id,
+          source: 'import',
+        });
       }
 
       // Check SKU duplicate again (idempotency)
@@ -652,6 +660,11 @@ export class ImportService {
         throw new Error(`Variant with SKU ${data.sku} already exists`);
       }
 
+      // Determine selling price (use selling_price if provided, else use price)
+      const sellingPrice = data.selling_price ? Number(data.selling_price) : Number(data.price);
+      const mrpPrice = data.mrp_price ? Number(data.mrp_price) : sellingPrice * 1.1;
+      const gstPercent = data.gst_percent ? Number(data.gst_percent) : 5.0;
+
       // Create variant
       const variant = await tx.product_variants.create({
         data: {
@@ -661,7 +674,11 @@ export class ImportService {
           size: data.size || null,
           packaging: data.packaging?.toUpperCase() || null,
           price: Number(data.price),
+          selling_price: sellingPrice,
+          mrp_price: mrpPrice,
+          gst_percent: gstPercent,
           sku: data.sku,
+          image_url: data.image_url || null,
           is_active: true,
         },
       });
@@ -675,9 +692,41 @@ export class ImportService {
           product_id: product.id,
           sku: data.sku,
           price: data.price,
+          selling_price: sellingPrice,
           source: 'import',
         }
       );
+
+      // Create or update inventory if quantity provided
+      if (data.quantity !== undefined && data.quantity !== null) {
+        const quantity = Number(data.quantity);
+        const lowStockThreshold = data.low_stock_threshold 
+          ? Number(data.low_stock_threshold) 
+          : 5;
+
+        const existingInventory = await tx.inventory.findFirst({
+          where: { variant_id: variant.id },
+        });
+
+        if (existingInventory) {
+          await tx.inventory.update({
+            where: { variant_id: variant.id },
+            data: {
+              quantity,
+              low_stock_threshold: lowStockThreshold,
+            },
+          });
+        } else {
+          await tx.inventory.create({
+            data: {
+              tenant_id: tenantId,
+              variant_id: variant.id,
+              quantity,
+              low_stock_threshold: lowStockThreshold,
+            },
+          });
+        }
+      }
     });
   }
 
@@ -718,9 +767,7 @@ export class ImportService {
             tenant_id: tenantId,
             variant_id: variant.id,
             quantity: Number(data.quantity),
-            low_stock_threshold: data.low_stock_threshold
-              ? Number(data.low_stock_threshold)
-              : 10,
+            low_stock_threshold: data.low_stock_threshold ? Number(data.low_stock_threshold) : 10,
           },
         });
       }
@@ -730,11 +777,7 @@ export class ImportService {
   /**
    * Import category row
    */
-  private async importCategoryRow(
-    data: any,
-    tenantId: bigint,
-    userId: bigint
-  ): Promise<void> {
+  private async importCategoryRow(data: any, tenantId: bigint, userId: bigint): Promise<void> {
     // Check duplicate again (idempotency)
     const existing = await this.categoryRepo.findByName(data.name, tenantId);
     if (existing) {
@@ -749,12 +792,47 @@ export class ImportService {
       },
     });
 
+    AuditLogger.create(tenantId, userId, 'category', category.id, {
+      name: data.name,
+      source: 'import',
+    });
+  }
+
+  /**
+   * Import supplier row
+   */
+  private async importSupplierRow(
+    data: any,
+    tenantId: bigint,
+    userId: bigint
+  ): Promise<void> {
+    // Check duplicate phone again (idempotency)
+    if (data.phone) {
+      const existing = await prisma.suppliers.findFirst({
+        where: { phone: data.phone, tenant_id: tenantId },
+      });
+      if (existing) {
+        throw new Error(`Supplier with phone ${data.phone} already exists`);
+      }
+    }
+
+    const supplier = await prisma.suppliers.create({
+      data: {
+        tenant_id: tenantId,
+        name: data.name,
+        phone: data.phone || null,
+        email: data.email || null,
+        address: data.address || null,
+        is_active: true,
+      },
+    });
+
     AuditLogger.create(
       tenantId,
       userId,
-      'category',
-      category.id,
-      { name: data.name, source: 'import' }
+      'supplier',
+      supplier.id,
+      { name: data.name, phone: data.phone, source: 'import' }
     );
   }
 

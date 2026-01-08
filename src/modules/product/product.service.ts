@@ -22,6 +22,7 @@ export interface ProductResponse {
 
 export interface VariantResponse {
   id: string;
+  product_id: string;
   brand: string | null;
   size: string | null;
   packaging: string | null;
@@ -83,13 +84,11 @@ export class ProductService {
     });
 
     // Audit log
-    AuditLogger.create(
-      tenantIdBigInt,
-      BigInt(_createdBy),
-      'product',
-      product.id,
-      { name: product.name, category_id: product.category_id?.toString(), is_active: product.is_active }
-    );
+    AuditLogger.create(tenantIdBigInt, BigInt(_createdBy), 'product', product.id, {
+      name: product.name,
+      category_id: product.category_id?.toString(),
+      is_active: product.is_active,
+    });
 
     return this.formatProductResponse(product);
   }
@@ -132,8 +131,6 @@ export class ProductService {
     if (!product) {
       throw new NotFoundError('Product not found');
     }
-
-    console.log('Product from DB:', JSON.stringify(product, (_, v) => typeof v === 'bigint' ? v.toString() : v, 2));
 
     return this.formatProductResponse(product);
   }
@@ -186,7 +183,12 @@ export class ProductService {
       tenantIdBigInt,
       {
         name: data.name,
-        category_id: data.category_id !== undefined ? (data.category_id ? BigInt(data.category_id) : null) : undefined,
+        category_id:
+          data.category_id !== undefined
+            ? data.category_id
+              ? BigInt(data.category_id)
+              : null
+            : undefined,
       }
     );
 
@@ -230,14 +232,14 @@ export class ProductService {
     if (!is_active && existingProduct.is_active) {
       // Get all variants for this product
       const variants = await this.variantRepository.findByProduct(productIdBigInt);
-      
+
       // Check each variant for invoice references
       for (const variant of variants) {
         const isReferenced = await this.reportsRepository.isVariantReferencedByInvoices(
           variant.id,
           tenantIdBigInt
         );
-        
+
         if (isReferenced) {
           throw new ConflictError(
             `Cannot deactivate product. Variant "${variant.brand} ${variant.size} ${variant.packaging}" (SKU: ${variant.sku}) is referenced in invoices. Consider keeping it active or creating a new variant.`
@@ -319,13 +321,13 @@ export class ProductService {
     });
 
     // Audit log
-    AuditLogger.create(
-      tenantIdBigInt,
-      BigInt(_createdBy),
-      'variant',
-      variant.id,
-      { brand: variant.brand, size: variant.size, packaging: variant.packaging, price: Number(variant.price), sku: variant.sku }
-    );
+    AuditLogger.create(tenantIdBigInt, BigInt(_createdBy), 'variant', variant.id, {
+      brand: variant.brand,
+      size: variant.size,
+      packaging: variant.packaging,
+      price: Number(variant.price),
+      sku: variant.sku,
+    });
 
     return this.formatVariantResponse(variant);
   }
@@ -357,7 +359,7 @@ export class ProductService {
         variantIdBigInt,
         tenantIdBigInt
       );
-      
+
       if (isReferenced) {
         throw new ConflictError(
           `Cannot deactivate variant "${existingVariant.brand} ${existingVariant.size} ${existingVariant.packaging}" (SKU: ${existingVariant.sku}). It is referenced in existing invoices. Consider creating a new variant instead.`
@@ -388,7 +390,7 @@ export class ProductService {
         packaging: existingVariant.packaging,
         price: Number(existingVariant.price),
         sku: existingVariant.sku,
-        is_active: existingVariant.is_active
+        is_active: existingVariant.is_active,
       };
       const newValue = {
         brand: updatedVariant.brand,
@@ -396,9 +398,9 @@ export class ProductService {
         packaging: updatedVariant.packaging,
         price: Number(updatedVariant.price),
         sku: updatedVariant.sku,
-        is_active: updatedVariant.is_active
+        is_active: updatedVariant.is_active,
       };
-      
+
       if (isStatusChange) {
         AuditLogger.statusChange(
           tenantIdBigInt,
@@ -427,25 +429,10 @@ export class ProductService {
    * Search products for billing screen
    * Optimized for quick product lookup during billing
    */
-  async searchForBilling(tenantId: string, searchQuery: string) {
+  async searchForBilling(tenantId: string, searchQuery: string): Promise<any[]> {
     const tenantIdBigInt = BigInt(tenantId);
-    
-    console.log('🔍 Search Debug:', {
-      tenantId: tenantIdBigInt.toString(),
-      searchQuery,
-      queryLength: searchQuery.length,
-    });
 
     const variants = await this.productRepository.searchForBilling(tenantIdBigInt, searchQuery);
-    
-    console.log('📦 Results:', {
-      count: variants.length,
-      variants: variants.map(v => ({
-        id: v.id.toString(),
-        productName: v.products?.name,
-        sku: v.sku,
-      })),
-    });
 
     // Format lightweight response for billing
     return variants.map((variant) => ({
@@ -467,30 +454,25 @@ export class ProductService {
    * Format product response
    */
   private formatProductResponse(
-    product: Product & { 
+    product: Product & {
       product_variants?: product_variants[];
       categories?: { id: bigint; name: string; is_active: boolean; tenant_id: bigint } | null;
     }
   ): ProductResponse {
-    console.log('=== FORMATTING PRODUCT ===');
-    console.log('Product categories field:', product.categories);
-    console.log('Has categories?', !!product.categories);
-    
     const result = {
       id: product.id.toString(),
       name: product.name,
       category_id: product.category_id?.toString() || null,
-      category: product.categories ? {
-        id: product.categories.id.toString(),
-        name: product.categories.name
-      } : null,
+      category: product.categories
+        ? {
+            id: product.categories.id.toString(),
+            name: product.categories.name,
+          }
+        : null,
       is_active: product.is_active,
       variants: (product.product_variants || []).map((v) => this.formatVariantResponse(v)),
     };
-    
-    console.log('Result category:', result.category);
-    console.log('======================');
-    
+
     return result;
   }
 
@@ -500,6 +482,7 @@ export class ProductService {
   private formatVariantResponse(variant: product_variants): VariantResponse {
     return {
       id: variant.id.toString(),
+      product_id: variant.product_id.toString(),
       brand: variant.brand,
       size: variant.size,
       packaging: variant.packaging,

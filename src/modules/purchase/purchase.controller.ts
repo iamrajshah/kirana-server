@@ -22,13 +22,7 @@ export class PurchaseController {
     const ip = (req.ip || req.connection?.remoteAddress)?.toString();
     const userAgent = req.headers['user-agent'];
 
-    const purchase = await this.service.createPurchase(
-      tenantId,
-      userId,
-      req.body,
-      ip,
-      userAgent
-    );
+    const purchase = await this.service.createPurchase(tenantId, userId, req.body, ip, userAgent);
 
     res.status(201).json({
       success: true,

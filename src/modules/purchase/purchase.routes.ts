@@ -19,7 +19,12 @@ router.use(authenticate);
  * @desc    Create purchase invoice
  * @access  OWNER, MANAGER (PURCHASE_CREATE permission)
  */
-router.post('/', hasPermission('PURCHASE_CREATE'), validate(createPurchaseSchema), controller.create);
+router.post(
+  '/',
+  hasPermission('PURCHASE_CREATE'),
+  validate(createPurchaseSchema),
+  controller.create
+);
 
 /**
  * @route   GET /purchases
@@ -33,6 +38,11 @@ router.get('/', hasPermission('PURCHASE_VIEW'), validate(getPurchasesSchema), co
  * @desc    Get purchase by ID
  * @access  OWNER, MANAGER, CASHIER (PURCHASE_VIEW permission)
  */
-router.get('/:id', hasPermission('PURCHASE_VIEW'), validate(getPurchaseByIdSchema), controller.getById);
+router.get(
+  '/:id',
+  hasPermission('PURCHASE_VIEW'),
+  validate(getPurchaseByIdSchema),
+  controller.getById
+);
 
 export default router;

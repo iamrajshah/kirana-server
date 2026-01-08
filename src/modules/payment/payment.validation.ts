@@ -1,9 +1,11 @@
 import { z } from 'zod';
 
 export const createPaymentSchema = z.object({
-  headers: z.object({
-    'idempotency-key': z.string().optional(),
-  }).passthrough(), // Allow other headers
+  headers: z
+    .object({
+      'idempotency-key': z.string().optional(),
+    })
+    .passthrough(), // Allow other headers
   body: z.object({
     customer_id: z.string().min(1, 'Customer ID is required'),
     amount: z.number().positive('Amount must be positive'),

@@ -15,7 +15,7 @@ export const registerOwnerSchema = z.object({
       .regex(/^\+?[1-9]\d{9,14}$/, 'Invalid phone number format'),
     email: z.string().email('Invalid email format').max(100).optional(),
     gstNumber: z.string().max(20).optional(),
-    
+
     // User credentials
     password: z
       .string()
@@ -32,17 +32,16 @@ export const registerOwnerSchema = z.object({
  * Login Schema
  */
 export const loginSchema = z.object({
-  body: z.object({
-    email: z.string().email('Invalid email format').optional(),
-    phone: z.string().optional(),
-    password: z.string().min(1, 'Password is required'),
-  }).refine(
-    (data) => data.email || data.phone,
-    {
+  body: z
+    .object({
+      email: z.string().email('Invalid email format').optional(),
+      phone: z.string().optional(),
+      password: z.string().min(1, 'Password is required'),
+    })
+    .refine((data) => data.email || data.phone, {
       message: 'Either email or phone is required',
       path: ['email'],
-    }
-  ),
+    }),
 });
 
 /**

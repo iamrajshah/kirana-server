@@ -41,7 +41,13 @@ router.use(authenticate);
  * @desc    Upload file and create import job
  * @access  OWNER, MANAGER (IMPORT_DATA permission)
  */
-router.post('/upload', hasPermission('IMPORT_DATA'), upload.single('file'), validate(createImportJobSchema), controller.uploadFile);
+router.post(
+  '/upload',
+  hasPermission('IMPORT_DATA'),
+  upload.single('file'),
+  validate(createImportJobSchema),
+  controller.uploadFile
+);
 
 /**
  * @route   GET /api/import
@@ -55,21 +61,36 @@ router.get('/', hasPermission('IMPORT_DATA'), validate(getImportJobsSchema), con
  * @desc    Get import job details with row-level errors
  * @access  OWNER, MANAGER (IMPORT_DATA permission)
  */
-router.get('/:jobId', hasPermission('IMPORT_DATA'), validate(getImportJobSchema), controller.getJob);
+router.get(
+  '/:jobId',
+  hasPermission('IMPORT_DATA'),
+  validate(getImportJobSchema),
+  controller.getJob
+);
 
 /**
  * @route   POST /api/import/:jobId/commit
  * @desc    Commit import job (import valid rows only)
  * @access  OWNER, MANAGER (IMPORT_DATA permission)
  */
-router.post('/:jobId/commit', hasPermission('IMPORT_DATA'), validate(commitImportJobSchema), controller.commitJob);
+router.post(
+  '/:jobId/commit',
+  hasPermission('IMPORT_DATA'),
+  validate(commitImportJobSchema),
+  controller.commitJob
+);
 
 /**
  * @route   POST /api/import/export
  * @desc    Export data to CSV/Excel
  * @access  OWNER, MANAGER (EXPORT_DATA permission)
  */
-router.post('/export', hasPermission('EXPORT_DATA'), validate(exportDataSchema), controller.exportData);
+router.post(
+  '/export',
+  hasPermission('EXPORT_DATA'),
+  validate(exportDataSchema),
+  controller.exportData
+);
 
 /**
  * @route   GET /api/export/customers
@@ -77,7 +98,12 @@ router.post('/export', hasPermission('EXPORT_DATA'), validate(exportDataSchema),
  * @access  OWNER, MANAGER (EXPORT_DATA permission)
  * @query   format - CSV or EXCEL (default: CSV)
  */
-router.get('/export/customers', hasPermission('EXPORT_DATA'), validate(exportFormatSchema), controller.exportCustomers);
+router.get(
+  '/export/customers',
+  hasPermission('EXPORT_DATA'),
+  validate(exportFormatSchema),
+  controller.exportCustomers
+);
 
 /**
  * @route   GET /api/export/products
@@ -85,7 +111,12 @@ router.get('/export/customers', hasPermission('EXPORT_DATA'), validate(exportFor
  * @access  OWNER, MANAGER (EXPORT_DATA permission)
  * @query   format - CSV or EXCEL (default: CSV)
  */
-router.get('/export/products', hasPermission('EXPORT_DATA'), validate(exportFormatSchema), controller.exportProducts);
+router.get(
+  '/export/products',
+  hasPermission('EXPORT_DATA'),
+  validate(exportFormatSchema),
+  controller.exportProducts
+);
 
 /**
  * @route   GET /api/export/inventory
@@ -93,7 +124,12 @@ router.get('/export/products', hasPermission('EXPORT_DATA'), validate(exportForm
  * @access  OWNER, MANAGER (EXPORT_DATA permission)
  * @query   format - CSV or EXCEL (default: CSV)
  */
-router.get('/export/inventory', hasPermission('EXPORT_DATA'), validate(exportFormatSchema), controller.exportInventory);
+router.get(
+  '/export/inventory',
+  hasPermission('EXPORT_DATA'),
+  validate(exportFormatSchema),
+  controller.exportInventory
+);
 
 /**
  * @route   GET /api/export/invoices
@@ -101,7 +137,12 @@ router.get('/export/inventory', hasPermission('EXPORT_DATA'), validate(exportFor
  * @access  OWNER, MANAGER (EXPORT_DATA permission)
  * @query   format - CSV or EXCEL (default: CSV)
  */
-router.get('/export/invoices', hasPermission('EXPORT_DATA'), validate(exportFormatSchema), controller.exportInvoices);
+router.get(
+  '/export/invoices',
+  hasPermission('EXPORT_DATA'),
+  validate(exportFormatSchema),
+  controller.exportInvoices
+);
 
 /**
  * @route   GET /api/export/ledger
@@ -109,6 +150,11 @@ router.get('/export/invoices', hasPermission('EXPORT_DATA'), validate(exportForm
  * @access  OWNER, MANAGER (EXPORT_DATA permission)
  * @query   format - CSV or EXCEL (default: CSV)
  */
-router.get('/export/ledger', hasPermission('EXPORT_DATA'), validate(exportFormatSchema), controller.exportLedger);
+router.get(
+  '/export/ledger',
+  hasPermission('EXPORT_DATA'),
+  validate(exportFormatSchema),
+  controller.exportLedger
+);
 
 export default router;

@@ -44,7 +44,7 @@ export class ImportController {
     const result = await this.service.createImportJob(
       tenantId,
       userId,
-      req.body.type as any,
+      req.body.type,
       fileMetadata.key,
       BigInt(fileMetadata.size),
       fileMetadata.mimeType,
@@ -68,10 +68,7 @@ export class ImportController {
     const { user } = req as AuthRequest;
     const tenantId = BigInt(user!.tenantId);
 
-    const result = await this.service.getImportJob(
-      BigInt(req.params.jobId),
-      tenantId
-    );
+    const result = await this.service.getImportJob(BigInt(req.params.jobId), tenantId);
 
     res.status(200).json({
       success: true,
@@ -175,15 +172,7 @@ export class ImportController {
           price: v.price,
           sku: v.sku,
         }));
-        headers = [
-          'product_name',
-          'category_name',
-          'brand',
-          'size',
-          'packaging',
-          'price',
-          'sku',
-        ];
+        headers = ['product_name', 'category_name', 'brand', 'size', 'packaging', 'price', 'sku'];
         filename = `products_${Date.now()}`;
         break;
 
@@ -226,10 +215,7 @@ export class ImportController {
         'Content-Type',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       );
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="${filename}.xlsx"`
-      );
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
       res.send(buffer);
     } else {
       const csv = generateCSV(data, headers);
@@ -270,7 +256,7 @@ export class ImportController {
 
       const batchSize = 1000;
       let skip = 0;
-      
+
       while (true) {
         const batch = await prisma.customer.findMany({
           where: { tenant_id: tenantId, is_active: true },
@@ -322,9 +308,20 @@ export class ImportController {
         price: v.price,
         sku: v.sku,
       }));
-      const headers = ['product_name', 'category_name', 'brand', 'size', 'packaging', 'price', 'sku'];
+      const headers = [
+        'product_name',
+        'category_name',
+        'brand',
+        'size',
+        'packaging',
+        'price',
+        'sku',
+      ];
       const buffer = generateExcel(data, headers);
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
       res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
       res.send(buffer);
     } else {
@@ -334,7 +331,7 @@ export class ImportController {
 
       const batchSize = 1000;
       let skip = 0;
-      
+
       while (true) {
         const batch = await prisma.product_variants.findMany({
           where: { tenant_id: tenantId, is_active: true },
@@ -354,7 +351,9 @@ export class ImportController {
           const packaging = (v.packaging || '').replace(/"/g, '""');
           const price = v.price?.toString() || '0';
           const sku = (v.sku || '').replace(/"/g, '""');
-          res.write(`"${productName}","${categoryName}","${brand}","${size}","${packaging}","${price}","${sku}"\n`);
+          res.write(
+            `"${productName}","${categoryName}","${brand}","${size}","${packaging}","${price}","${sku}"\n`
+          );
         }
 
         skip += batchSize;
@@ -386,7 +385,10 @@ export class ImportController {
       }));
       const headers = ['sku', 'quantity', 'low_stock_threshold'];
       const buffer = generateExcel(data, headers);
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
       res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
       res.send(buffer);
     } else {
@@ -396,7 +398,7 @@ export class ImportController {
 
       const batchSize = 1000;
       let skip = 0;
-      
+
       while (true) {
         const batch = await prisma.inventory.findMany({
           where: { product_variants: { tenant_id: tenantId } },
@@ -447,19 +449,32 @@ export class ImportController {
         status: inv.status,
         created_at: inv.created_at?.toISOString(),
       }));
-      const headers = ['invoice_number', 'customer_name', 'customer_phone', 'total_amount', 'gst_amount', 'status', 'created_at'];
+      const headers = [
+        'invoice_number',
+        'customer_name',
+        'customer_phone',
+        'total_amount',
+        'gst_amount',
+        'status',
+        'created_at',
+      ];
       const buffer = generateExcel(data, headers);
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
       res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
       res.send(buffer);
     } else {
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}.csv"`);
-      res.write('invoice_number,customer_name,customer_phone,total_amount,gst_amount,status,created_at\n');
+      res.write(
+        'invoice_number,customer_name,customer_phone,total_amount,gst_amount,status,created_at\n'
+      );
 
       const batchSize = 1000;
       let skip = 0;
-      
+
       while (true) {
         const batch = await prisma.invoice.findMany({
           where: { tenant_id: tenantId },
@@ -479,7 +494,9 @@ export class ImportController {
           const gstAmount = inv.gst_amount?.toString() || '0';
           const status = inv.status || '';
           const createdAt = inv.created_at?.toISOString() || '';
-          res.write(`"${invoiceNumber}","${customerName}","${customerPhone}","${totalAmount}","${gstAmount}","${status}","${createdAt}"\n`);
+          res.write(
+            `"${invoiceNumber}","${customerName}","${customerPhone}","${totalAmount}","${gstAmount}","${status}","${createdAt}"\n`
+          );
         }
 
         skip += batchSize;
@@ -513,9 +530,19 @@ export class ImportController {
         description: entry.description || '',
         created_at: entry.created_at?.toISOString(),
       }));
-      const headers = ['customer_name', 'customer_phone', 'entry_type', 'amount', 'description', 'created_at'];
+      const headers = [
+        'customer_name',
+        'customer_phone',
+        'entry_type',
+        'amount',
+        'description',
+        'created_at',
+      ];
       const buffer = generateExcel(data, headers);
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
       res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
       res.send(buffer);
     } else {
@@ -525,7 +552,7 @@ export class ImportController {
 
       const batchSize = 1000;
       let skip = 0;
-      
+
       while (true) {
         const batch = await prisma.customer_ledger.findMany({
           where: { tenant_id: tenantId },
@@ -544,7 +571,9 @@ export class ImportController {
           const amount = entry.amount?.toString() || '0';
           const description = (entry.description || '').replace(/"/g, '""');
           const createdAt = entry.created_at?.toISOString() || '';
-          res.write(`"${customerName}","${customerPhone}","${entryType}","${amount}","${description}","${createdAt}"\n`);
+          res.write(
+            `"${customerName}","${customerPhone}","${entryType}","${amount}","${description}","${createdAt}"\n`
+          );
         }
 
         skip += batchSize;

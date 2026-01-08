@@ -28,7 +28,13 @@ export class ProductController {
     const search = req.query.search as string | undefined;
     const includeInactive = req.query.includeInactive === 'true';
 
-    const result = await this.productService.getAllProducts(tenantId, skip, take, search, includeInactive);
+    const result = await this.productService.getAllProducts(
+      tenantId,
+      skip,
+      take,
+      search,
+      includeInactive
+    );
 
     return res.json({
       success: true,
@@ -100,7 +106,12 @@ export class ProductController {
     const { id } = req.params;
     const { is_active } = req.body as UpdateProductStatusInput;
 
-    const product = await this.productService.updateProductStatus(id, tenantId, is_active, user?.userId);
+    const product = await this.productService.updateProductStatus(
+      id,
+      tenantId,
+      is_active,
+      user?.userId
+    );
 
     return res.json({
       success: true,
@@ -152,7 +163,7 @@ export class ProductController {
   searchForBilling = asyncHandler(async (req: Request, res: Response): Promise<Response> => {
     console.log('🎯 Controller reached - searchForBilling');
     console.log('📋 Full request query object:', JSON.stringify(req.query, null, 2));
-    
+
     const { tenantId } = req as TenantRequest;
     const searchQuery = (req.query.q as string) || '';
     const trimmedQuery = searchQuery.trim();

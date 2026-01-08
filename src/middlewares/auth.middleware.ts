@@ -9,8 +9,43 @@ import { UnauthorizedError } from '@utils/errors';
  * This mapping should match the data in permissions and role_permissions tables
  */
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
-  OWNER: ['USER_CREATE', 'USER_VIEW', 'USER_UPDATE', 'USER_DELETE', 'BILL_CREATE', 'BILL_VIEW', 'BILL_UPDATE', 'BILL_DELETE', 'CUSTOMER_CREATE', 'CUSTOMER_VIEW', 'CUSTOMER_UPDATE', 'CUSTOMER_DELETE', 'PRODUCT_CREATE', 'PRODUCT_VIEW', 'PRODUCT_UPDATE', 'PRODUCT_DELETE', 'REPORT_VIEW', 'SETTINGS_ALL', 'IMPORT_DATA', 'EXPORT_DATA'],
-  MANAGER: ['BILL_CREATE', 'BILL_VIEW', 'BILL_UPDATE', 'CUSTOMER_CREATE', 'CUSTOMER_VIEW', 'CUSTOMER_UPDATE', 'PRODUCT_CREATE', 'PRODUCT_VIEW', 'PRODUCT_UPDATE', 'PRODUCT_DELETE', 'REPORT_VIEW', 'IMPORT_DATA', 'EXPORT_DATA'],
+  OWNER: [
+    'USER_CREATE',
+    'USER_VIEW',
+    'USER_UPDATE',
+    'USER_DELETE',
+    'BILL_CREATE',
+    'BILL_VIEW',
+    'BILL_UPDATE',
+    'BILL_DELETE',
+    'CUSTOMER_CREATE',
+    'CUSTOMER_VIEW',
+    'CUSTOMER_UPDATE',
+    'CUSTOMER_DELETE',
+    'PRODUCT_CREATE',
+    'PRODUCT_VIEW',
+    'PRODUCT_UPDATE',
+    'PRODUCT_DELETE',
+    'REPORT_VIEW',
+    'SETTINGS_ALL',
+    'IMPORT_DATA',
+    'EXPORT_DATA',
+  ],
+  MANAGER: [
+    'BILL_CREATE',
+    'BILL_VIEW',
+    'BILL_UPDATE',
+    'CUSTOMER_CREATE',
+    'CUSTOMER_VIEW',
+    'CUSTOMER_UPDATE',
+    'PRODUCT_CREATE',
+    'PRODUCT_VIEW',
+    'PRODUCT_UPDATE',
+    'PRODUCT_DELETE',
+    'REPORT_VIEW',
+    'IMPORT_DATA',
+    'EXPORT_DATA',
+  ],
   CASHIER: ['BILL_CREATE', 'BILL_VIEW', 'CUSTOMER_VIEW', 'PRODUCT_VIEW'],
 };
 
@@ -20,12 +55,12 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
  */
 export const getPermissionsForRoles = (roles: string[]): string[] => {
   const permissions = new Set<string>();
-  
+
   roles.forEach((role) => {
     const rolePermissions = ROLE_PERMISSIONS[role] || [];
     rolePermissions.forEach((permission) => permissions.add(permission));
   });
-  
+
   return Array.from(permissions);
 };
 
@@ -96,9 +131,7 @@ export const authorize = (...allowedRoles: string[]) => {
       const hasPermission = allowedRoles.some((role) => userRoles.includes(role));
 
       if (!hasPermission) {
-        throw new UnauthorizedError(
-          `Access denied. Required roles: ${allowedRoles.join(', ')}`
-        );
+        throw new UnauthorizedError(`Access denied. Required roles: ${allowedRoles.join(', ')}`);
       }
 
       next();
@@ -141,9 +174,7 @@ export const hasPermission = (requiredPermission: string) => {
 
       // Check if user has the required permission
       if (!userPermissions.includes(requiredPermission)) {
-        throw new UnauthorizedError(
-          `Access denied. Required permission: ${requiredPermission}`
-        );
+        throw new UnauthorizedError(`Access denied. Required permission: ${requiredPermission}`);
       }
 
       next();
@@ -202,9 +233,7 @@ export const hasAnyPermission = (...requiredPermissions: string[]) => {
       const userPermissions = authReq.user.permissions || [];
 
       // Check if user has any of the required permissions
-      const hasAny = requiredPermissions.some((permission) =>
-        userPermissions.includes(permission)
-      );
+      const hasAny = requiredPermissions.some((permission) => userPermissions.includes(permission));
 
       if (!hasAny) {
         throw new UnauthorizedError(

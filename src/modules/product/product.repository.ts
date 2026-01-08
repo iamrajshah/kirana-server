@@ -134,7 +134,7 @@ export class ProductRepository {
   ): Promise<VariantWithProductAndInventory[]> {
     // Trim and prepare search term
     const searchTerm = searchQuery.trim();
-    
+
     if (!searchTerm || searchTerm.length < 2) {
       return [];
     }
@@ -143,12 +143,12 @@ export class ProductRepository {
      * Search Logic:
      * 1. Match by variant SKU - returns specific variant
      * 2. Match by product name - returns ALL active variants of matching products
-     * 
+     *
      * Example: Search "oil"
      * - Product "Cooking Oil" has 3 variants (500ml, 1L, 2L)
      * - All 3 variants will be returned if product name matches
      * - Specific variant returned if its SKU matches
-     * 
+     *
      * Note: MySQL LIKE is case-insensitive by default
      */
     return prisma.product_variants.findMany({
@@ -230,11 +230,7 @@ export class ProductRepository {
   /**
    * Update product status
    */
-  async updateStatus(
-    id: bigint,
-    tenant_id: bigint,
-    is_active: boolean
-  ): Promise<Product> {
+  async updateStatus(id: bigint, tenant_id: bigint, is_active: boolean): Promise<Product> {
     return prisma.product.update({
       where: {
         id,
