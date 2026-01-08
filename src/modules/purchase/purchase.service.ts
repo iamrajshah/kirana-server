@@ -3,6 +3,7 @@ import { SupplierRepository } from '@modules/supplier/supplier.repository';
 import { NotFoundError, BadRequestError } from '@utils/errors';
 import { prisma } from '@config/database';
 import { AuditLogger } from '@utils/auditLogger';
+import { serializeBigInt } from '@utils/serializeBigInt';
 
 interface PurchaseItem {
   variant_id: number;
@@ -224,10 +225,10 @@ export class PurchaseService {
    * Format purchase response
    */
   private formatPurchaseResponse(purchase: any): PurchaseResponse {
-    return {
-      id: purchase.id.toString(),
-      tenant_id: purchase.tenant_id.toString(),
-      supplier_id: purchase.supplier_id.toString(),
+    return serializeBigInt({
+      id: purchase.id,
+      tenant_id: purchase.tenant_id,
+      supplier_id: purchase.supplier_id,
       invoice_number: purchase.invoice_number,
       invoice_date: purchase.invoice_date,
       total_amount: Number(purchase.total_amount),
@@ -236,7 +237,7 @@ export class PurchaseService {
       created_at: purchase.created_at,
       ...(purchase.suppliers && {
         supplier: {
-          id: purchase.suppliers.id.toString(),
+          id: purchase.suppliers.id,
           name: purchase.suppliers.name,
           phone: purchase.suppliers.phone,
         },
@@ -247,8 +248,8 @@ export class PurchaseService {
           const product = item.products || variant?.products;
 
           return {
-            id: item.id.toString(),
-            variant_id: item.variant_id?.toString() || '',
+            id: item.id,
+            variant_id: item.variant_id || '',
             quantity: Number(item.quantity),
             purchase_price: Number(item.purchase_price),
             product_name: product?.name || 'Unknown Product',
@@ -258,6 +259,6 @@ export class PurchaseService {
           };
         }),
       }),
-    };
+    });
   }
 }

@@ -1,7 +1,8 @@
-import { CartRepository, Cart } from './cart.repository';
+import { CartRepository } from './cart.repository';
 import { AppError } from '@utils/errors';
 import { AddCartItemInput, UpdateCartItemInput } from './cart.validation';
 import { OrderService } from '@modules/order/order.service';
+import { serializeBigInt } from '@utils/serializeBigInt';
 
 export class CartService {
   private readonly repository: CartRepository;
@@ -10,17 +11,17 @@ export class CartService {
     this.repository = new CartRepository();
   }
 
-  async getOrCreateCart(tenantId: bigint, customerId: bigint): Promise<Cart> {
+  async getOrCreateCart(tenantId: bigint, customerId: bigint): Promise<any> {
     let cart = await this.repository.findActiveCart(tenantId, customerId);
 
     if (!cart) {
       cart = await this.repository.createCart(tenantId, customerId);
     }
 
-    return cart;
+    return serializeBigInt(cart);
   }
 
-  async addItem(tenantId: bigint, customerId: bigint, data: AddCartItemInput): Promise<Cart> {
+  async addItem(tenantId: bigint, customerId: bigint, data: AddCartItemInput): Promise<any> {
     const cart = await this.getOrCreateCart(tenantId, customerId);
 
     const variantIdStr = String(data.variant_id);
@@ -46,7 +47,7 @@ export class CartService {
     return this.getOrCreateCart(tenantId, customerId);
   }
 
-  async updateItem(tenantId: bigint, customerId: bigint, itemId: bigint, data: UpdateCartItemInput): Promise<Cart> {
+  async updateItem(tenantId: bigint, customerId: bigint, itemId: bigint, data: UpdateCartItemInput): Promise<any> {
     const cart = await this.getOrCreateCart(tenantId, customerId);
 
     const itemIdStr = String(itemId);
@@ -61,7 +62,7 @@ export class CartService {
     return this.getOrCreateCart(tenantId, customerId);
   }
 
-  async removeItem(tenantId: bigint, customerId: bigint, itemId: bigint): Promise<Cart> {
+  async removeItem(tenantId: bigint, customerId: bigint, itemId: bigint): Promise<any> {
     const cart = await this.getOrCreateCart(tenantId, customerId);
 
     const itemIdStr = String(itemId);

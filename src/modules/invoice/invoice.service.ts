@@ -3,6 +3,7 @@ import { InventoryRepository } from '../inventory/inventory.repository';
 import { NotFoundError, BadRequestError } from '@utils/errors';
 import { prisma } from '@config/database';
 import { AuditLogger } from '@utils/auditLogger';
+import { serializeBigInt } from '@utils/serializeBigInt';
 
 export class InvoiceService {
   private invoiceRepository: InvoiceRepository;
@@ -765,12 +766,12 @@ export class InvoiceService {
    * Format invoice response
    */
   private formatInvoiceResponse(invoice: any) {
-    return {
-      id: invoice.id.toString(),
+    return serializeBigInt({
+      id: invoice.id,
       invoice_number: invoice.invoice_number,
       customer: invoice.customers
         ? {
-            id: invoice.customers.id.toString(),
+            id: invoice.customers.id,
             name: invoice.customers.name,
             phone: invoice.customers.phone,
             email: invoice.customers.email,
@@ -778,24 +779,24 @@ export class InvoiceService {
         : null,
       items: invoice.invoice_items
         ? invoice.invoice_items.map((item: any) => ({
-            id: item.id.toString(),
-            variant_id: item.variant_id.toString(),
+            id: item.id,
+            variant_id: item.variant_id,
             quantity: item.quantity,
-            unit_price: item.unit_price, // Price per unit (original or overridden)
-            discount_amount: item.discount_amount || 0, // Item-level discount
-            final_price: item.final_price, // Final price after discount
-            price: item.price, // Total line price (for backward compatibility)
-            total: item.final_price, // Use final_price as total
+            unit_price: item.unit_price,
+            discount_amount: item.discount_amount || 0,
+            final_price: item.final_price,
+            price: item.price,
+            total: item.final_price,
             variant: item.product_variants
               ? {
-                  id: item.product_variants.id.toString(),
+                  id: item.product_variants.id,
                   sku: item.product_variants.sku,
                   price: item.product_variants.price,
                   selling_price: item.product_variants.selling_price,
                   mrp_price: item.product_variants.mrp_price,
                   product: item.product_variants.products
                     ? {
-                        id: item.product_variants.products.id.toString(),
+                        id: item.product_variants.products.id,
                         name: item.product_variants.products.name,
                       }
                     : null,
@@ -803,8 +804,8 @@ export class InvoiceService {
               : null,
           }))
         : [],
-      subtotal_amount: invoice.subtotal_amount, // Amount before discounts and GST
-      discount_amount: invoice.discount_amount || 0, // Total discount (items + bill-level)
+      subtotal_amount: invoice.subtotal_amount,
+      discount_amount: invoice.discount_amount || 0,
       gst_amount: invoice.gst_amount || 0,
       total_amount: invoice.total_amount,
       paid_amount: invoice.paid_amount || 0,
@@ -814,7 +815,7 @@ export class InvoiceService {
       created_at: invoice.created_at,
       finalized_at: invoice.finalized_at,
       cancelled_at: invoice.cancelled_at,
-    };
+    });
   }
 
   /**
@@ -844,24 +845,26 @@ export class InvoiceService {
       },
     });
 
-    return invoices.map((invoice) => ({
-      id: invoice.id.toString(),
-      invoice_number: invoice.invoice_number,
-      customer: invoice.customers
-        ? {
-            id: invoice.customers.id.toString(),
-            name: invoice.customers.name,
-            phone: invoice.customers.phone,
-            email: invoice.customers.email,
-          }
-        : null,
-      total_amount: invoice.total_amount,
-      paid_amount: invoice.paid_amount || 0,
-      balance_amount: Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0),
-      status: invoice.status,
-      created_at: invoice.created_at,
-      finalized_at: invoice.finalized_at,
-    }));
+    return serializeBigInt(
+      invoices.map((invoice) => ({
+        id: invoice.id,
+        invoice_number: invoice.invoice_number,
+        customer: invoice.customers
+          ? {
+              id: invoice.customers.id,
+              name: invoice.customers.name,
+              phone: invoice.customers.phone,
+              email: invoice.customers.email,
+            }
+          : null,
+        total_amount: invoice.total_amount,
+        paid_amount: invoice.paid_amount || 0,
+        balance_amount: Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0),
+        status: invoice.status,
+        created_at: invoice.created_at,
+        finalized_at: invoice.finalized_at,
+      }))
+    );
   }
 
   /**

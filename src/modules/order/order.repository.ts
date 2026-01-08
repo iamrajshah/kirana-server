@@ -13,8 +13,9 @@ export class OrderRepository {
     this.prisma = prisma;
   }
 
-  async findActiveCart(tenantId: bigint, customerId: bigint) {
-    const cartResult = await this.prisma.$queryRaw<any[]>`
+  async findActiveCart(tenantId: bigint, customerId: bigint, tx?: any) {
+    const client = tx || this.prisma;
+    const cartResult = await client.$queryRaw<any[]>`
       SELECT c.id as cart_id
       FROM carts c
       WHERE c.tenant_id = ${tenantId}
@@ -26,8 +27,9 @@ export class OrderRepository {
     return cartResult && cartResult.length > 0 ? cartResult[0] : null;
   }
 
-  async getCartItems(cartId: bigint) {
-    return this.prisma.$queryRaw<any[]>`
+  async getCartItems(cartId: bigint, tx?: any) {
+    const client = tx || this.prisma;
+    return client.$queryRaw<any[]>`
       SELECT 
         ci.variant_id,
         ci.quantity,
@@ -39,14 +41,18 @@ export class OrderRepository {
     `;
   }
 
-  async createOrder(tenantId: bigint, customerId: bigint, totalAmount: number) {
-    await this.prisma.$executeRaw`
-      INSERT INTO orders (tenant_id, customer_id, status, total_amount, source, created_at, updated_at)
-      VALUES (${tenantId}, ${customerId}, 'PLACED', ${totalAmount}, 'CUSTOMER_APP', NOW(), NOW())
-    `;
-
-    const orderId = await this.prisma.$queryRaw<any[]>`SELECT LAST_INSERT_ID() as id`;
-    return orderId[0].id;
+  async createOrder(tenantId: bigint, customerId: bigint, totalAmount: number, tx?: any) {
+    const client = tx || this.prisma;
+    const order = await client.orders.create({
+      data: {
+        tenant_id: tenantId,
+        customer_id: customerId,
+        status: 'PLACED',
+        total_amount: totalAmount,
+        source: 'CUSTOMER_APP',
+      },
+    });
+    return order.id;
   }
 
   async createOrderItem(
@@ -55,26 +61,42 @@ export class OrderRepository {
     variantId: bigint,
     quantity: number,
     unitPrice: Decimal,
-    totalPrice: number
+    totalPrice: number,
+    tx?: any
   ) {
-    await this.prisma.$executeRaw`
-      INSERT INTO order_items (order_id, product_id, variant_id, quantity, unit_price, total_price)
-      VALUES (${orderId}, ${productId}, ${variantId}, ${quantity}, ${unitPrice}, ${totalPrice})
-    `;
+    const client = tx || this.prisma;
+    await client.order_items.create({
+      data: {
+        order_id: orderId,
+        product_id: productId,
+        variant_id: variantId,
+        quantity,
+        unit_price: unitPrice,
+        total_price: totalPrice,
+      },
+    });
   }
 
-  async createInvoice(tenantId: bigint, customerId: bigint, orderId: bigint, totalAmount: number) {
-    await this.prisma.$executeRaw`
-      INSERT INTO invoices (tenant_id, customer_id, order_id, status, subtotal_amount, total_amount, discount_amount, gst_amount, created_at)
-      VALUES (${tenantId}, ${customerId}, ${orderId}, 'DRAFT', ${totalAmount}, ${totalAmount}, 0, 0, NOW())
-    `;
-
-    const invoiceResult = await this.prisma.$queryRaw<any[]>`SELECT LAST_INSERT_ID() as id`;
-    return invoiceResult[0].id;
+  async createInvoice(tenantId: bigint, customerId: bigint, orderId: bigint, totalAmount: number, tx?: any) {
+    const client = tx || this.prisma;
+    const invoice = await client.invoice.create({
+      data: {
+        tenant_id: tenantId,
+        customer_id: customerId,
+        order_id: orderId,
+        status: 'DRAFT',
+        subtotal_amount: totalAmount,
+        total_amount: totalAmount,
+        discount_amount: 0,
+        gst_amount: 0,
+      },
+    });
+    return invoice.id;
   }
 
-  async generateInvoiceNumber(tenantId: bigint) {
-    const invoiceNumberResult = await this.prisma.$queryRaw<any[]>`
+  async generateInvoiceNumber(tenantId: bigint, tx?: any) {
+    const client = tx || this.prisma;
+    const invoiceNumberResult = await client.$queryRaw<any[]>`
       SELECT COUNT(*) + 1 as next_num
       FROM invoices
       WHERE tenant_id = ${tenantId}
@@ -85,12 +107,12 @@ export class OrderRepository {
     return `INV-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(nextNum).padStart(4, '0')}`;
   }
 
-  async updateInvoiceNumber(invoiceId: bigint, invoiceNumber: string) {
-    await this.prisma.$executeRaw`
-      UPDATE invoices
-      SET invoice_number = ${invoiceNumber}
-      WHERE id = ${invoiceId}
-    `;
+  async updateInvoiceNumber(invoiceId: bigint, invoiceNumber: string, tx?: any) {
+    const client = tx || this.prisma;
+    await client.invoice.update({
+      where: { id: invoiceId },
+      data: { invoice_number: invoiceNumber },
+    });
   }
 
   async createInvoiceItem(
@@ -98,22 +120,32 @@ export class OrderRepository {
     variantId: bigint,
     quantity: number,
     unitPrice: Decimal,
-    finalPrice: number
+    finalPrice: number,
+    tx?: any
   ) {
-    await this.prisma.$executeRaw`
-      INSERT INTO invoice_items (invoice_id, variant_id, quantity, unit_price, price, discount_amount, final_price)
-      VALUES (${invoiceId}, ${variantId}, ${quantity}, ${unitPrice}, ${unitPrice}, 0, ${finalPrice})
-    `;
+    const client = tx || this.prisma;
+    await client.invoiceItem.create({
+      data: {
+        invoice_id: invoiceId,
+        variant_id: variantId,
+        quantity,
+        unit_price: unitPrice,
+        price: unitPrice,
+        discount_amount: 0,
+        final_price: finalPrice,
+      },
+    });
   }
 
-  async clearCart(cartId: bigint) {
-    await this.prisma.$executeRaw`
-      DELETE FROM cart_items WHERE cart_id = ${cartId}
-    `;
-
-    await this.prisma.$executeRaw`
-      UPDATE carts SET status = 'COMPLETED' WHERE id = ${cartId}
-    `;
+  async clearCart(cartId: bigint, tx?: any) {
+    const client = tx || this.prisma;
+    await client.cart_items.deleteMany({
+      where: { cart_id: cartId },
+    });
+    await client.carts.update({
+      where: { id: cartId },
+      data: { status: 'CONVERTED' },
+    });
   }
 
   async findCustomerOrders(tenantId: bigint, customerId: bigint, params: PaginationParams) {
@@ -230,16 +262,29 @@ export class OrderRepository {
     `;
   }
 
-  async executeInTransaction<T>(callback: () => Promise<T>): Promise<T> {
+  async updateInvoiceStatusByOrderId(orderId: bigint, status: string) {
+    if (status === 'CANCELLED') {
+      await this.prisma.$executeRaw`
+        UPDATE invoices
+        SET status = ${status}, 
+            cancelled_at = NOW()
+        WHERE order_id = ${orderId}
+      `;
+    } else {
+      await this.prisma.$executeRaw`
+        UPDATE invoices
+        SET status = ${status}
+        WHERE order_id = ${orderId}
+      `;
+    }
+  }
+
+  async executeInTransaction<T>(callback: (tx: any) => Promise<T>): Promise<T> {
     return this.prisma.$transaction(async (tx) => {
-      // Replace this.prisma with tx temporarily
-      const originalPrisma = this.prisma;
-      (this as any).prisma = tx;
-      try {
-        return await callback();
-      } finally {
-        (this as any).prisma = originalPrisma;
-      }
+      return await callback(tx);
+    }, {
+      maxWait: 10000,
+      timeout: 20000,
     });
   }
 }
