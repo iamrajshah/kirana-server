@@ -3,7 +3,11 @@ import { CategoryService } from './category.service';
 import { TenantRequest } from '@middlewares/tenant.middleware';
 import { AuthRequest } from '@middlewares/auth.middleware';
 import { asyncHandler } from '@utils/asyncHandler';
-import { CreateCategoryInput, UpdateCategoryInput, UpdateCategoryStatusInput } from './category.validation';
+import {
+  CreateCategoryInput,
+  UpdateCategoryInput,
+  UpdateCategoryStatusInput,
+} from './category.validation';
 
 export class CategoryController {
   private readonly categoryService: CategoryService;
@@ -22,7 +26,13 @@ export class CategoryController {
     const search = req.query.search as string | undefined;
     const includeInactive = req.query.includeInactive === 'true';
 
-    const result = await this.categoryService.getAllCategories(tenantId, page, limit, search, includeInactive);
+    const result = await this.categoryService.getAllCategories(
+      tenantId,
+      page,
+      limit,
+      search,
+      includeInactive
+    );
 
     return res.json({
       success: true,
@@ -94,7 +104,12 @@ export class CategoryController {
     const { id } = req.params;
     const { is_active } = req.body as UpdateCategoryStatusInput;
 
-    const category = await this.categoryService.updateCategoryStatus(id, tenantId, is_active, user?.userId);
+    const category = await this.categoryService.updateCategoryStatus(
+      id,
+      tenantId,
+      is_active,
+      user?.userId
+    );
 
     return res.json({
       success: true,

@@ -14,6 +14,26 @@ export class CustomerAuthRepository {
   }
 
   /**
+   * Find customer by phone with tenant information
+   */
+  async findByPhoneWithTenant(phone: string, tenantId: bigint): Promise<any | null> {
+    return prisma.customer.findFirst({
+      where: {
+        tenant_id: tenantId,
+        phone,
+      },
+      include: {
+        tenants: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
    * Find customer by ID with tenant isolation
    */
   async findById(customerId: bigint, tenantId: bigint): Promise<any | null> {

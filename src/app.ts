@@ -7,6 +7,7 @@ import { errorHandler, notFoundHandler } from '@middlewares/error.middleware';
 import routes from './routes';
 import { logger } from '@utils/logger';
 
+
 export function createApp(): Application {
   const app = express();
 
@@ -14,17 +15,21 @@ export function createApp(): Application {
   app.use(helmet());
   app.use(
     cors({
-      origin: [
-        config.cors.origin,
-        'capacitor://localhost',
-        'ionic://localhost',
-        'http://localhost:3000',
-        'http://localhost:3001',
-      ],
+      origin: config.cors.origin,
+      // origin: (origin, callback) => {
+      //   if (!origin) return callback(null, true);
+      //   const allowedOrigins = config.cors.origin;
+      //   console.log('Allowed Origin:', allowedOrigins)
+      //   if (allowedOrigins.includes(origin)) {
+      //     return callback(null, true);
+      //   }
+
+      //   return callback(new Error(`CORS blocked: ${origin}`));
+      // },
       credentials: true,
     })
   );
-
+  app.options('*', cors());
   // Rate limiting
   const limiter = rateLimit({
     windowMs: config.rateLimit.windowMs,
@@ -33,7 +38,7 @@ export function createApp(): Application {
     standardHeaders: true,
     legacyHeaders: false,
   });
-  app.use('/api', limiter);
+  app.use('/api/v1', limiter);
 
   // Body parsing middleware
   app.use(express.json({ limit: '10mb' }));

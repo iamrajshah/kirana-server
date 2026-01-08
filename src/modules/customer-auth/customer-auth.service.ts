@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '@config/env';
 import { CustomerAuthRepository } from './customer-auth.repository';
 import { AppError } from '@utils/errors';
-import { CustomerRegisterInput, CustomerLoginInput } from './customer.validation';
+import { CustomerRegisterInput, CustomerLoginInput } from './customer-auth.validation';
 
 export class CustomerAuthService {
   private readonly repository: CustomerAuthRepository;
@@ -48,8 +48,8 @@ export class CustomerAuthService {
   }
 
   async login(tenantId: bigint, data: CustomerLoginInput) {
-    // Find customer
-    const customer = await this.repository.findByPhone(data.phone, tenantId);
+    // Find customer with tenant info
+    const customer = await this.repository.findByPhoneWithTenant(data.phone, tenantId);
 
     if (!customer || !customer.is_active) {
       throw new AppError('Invalid credentials', 401);
@@ -77,6 +77,10 @@ export class CustomerAuthService {
         name: customer.name,
         phone: customer.phone,
         email: customer.email,
+      },
+      tenant: {
+        id: customer.tenants.id.toString(),
+        name: customer.tenants.name,
       },
       token,
     };

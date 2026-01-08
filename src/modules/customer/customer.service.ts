@@ -1,7 +1,11 @@
 import { Customer, customer_ledger } from '@prisma/client';
 import { CustomerRepository } from './customer.repository';
 import { LedgerService } from './ledger.service';
-import { CreateCustomerInput, UpdateCustomerInput, AddOpeningBalanceInput } from './customer.validation';
+import {
+  CreateCustomerInput,
+  UpdateCustomerInput,
+  AddOpeningBalanceInput,
+} from './customer.validation';
 import { ConflictError, NotFoundError } from '@utils/errors';
 import { AuditLogger } from '@utils/auditLogger';
 
@@ -37,7 +41,11 @@ export class CustomerService {
   /**
    * Create a new customer with optional opening balance
    */
-  async create(tenantId: string, data: CreateCustomerInput, createdBy: string): Promise<CustomerResponse> {
+  async create(
+    tenantId: string,
+    data: CreateCustomerInput,
+    createdBy: string
+  ): Promise<CustomerResponse> {
     const tenantIdBigInt = BigInt(tenantId);
 
     // Check if customer with phone already exists
@@ -87,13 +95,12 @@ export class CustomerService {
     }
 
     // Audit log
-    AuditLogger.create(
-      tenantIdBigInt,
-      BigInt(createdBy),
-      'customer',
-      customer.id,
-      { name: customer.name, phone: customer.phone, email: customer.email, credit_balance: Number(customer.credit_balance) }
-    );
+    AuditLogger.create(tenantIdBigInt, BigInt(createdBy), 'customer', customer.id, {
+      name: customer.name,
+      phone: customer.phone,
+      email: customer.email,
+      credit_balance: Number(customer.credit_balance),
+    });
 
     return this.formatCustomerResponse(customer);
   }
@@ -143,12 +150,20 @@ export class CustomerService {
   /**
    * Update customer
    */
-  async update(customerId: string, tenantId: string, data: UpdateCustomerInput, userId?: string): Promise<CustomerResponse> {
+  async update(
+    customerId: string,
+    tenantId: string,
+    data: UpdateCustomerInput,
+    userId?: string
+  ): Promise<CustomerResponse> {
     const customerIdBigInt = BigInt(customerId);
     const tenantIdBigInt = BigInt(tenantId);
 
     // Check if customer exists
-    const existingCustomer = await this.repository.findByIdAndTenant(customerIdBigInt, tenantIdBigInt);
+    const existingCustomer = await this.repository.findByIdAndTenant(
+      customerIdBigInt,
+      tenantIdBigInt
+    );
     if (!existingCustomer) {
       throw new NotFoundError('Customer not found');
     }
@@ -169,7 +184,11 @@ export class CustomerService {
       }
     }
 
-    const updatedCustomer = await this.repository.updateCustomer(customerIdBigInt, tenantIdBigInt, data);
+    const updatedCustomer = await this.repository.updateCustomer(
+      customerIdBigInt,
+      tenantIdBigInt,
+      data
+    );
 
     // Audit log (only if userId is available)
     if (userId) {
@@ -178,7 +197,11 @@ export class CustomerService {
         BigInt(userId),
         'customer',
         customerIdBigInt,
-        { name: existingCustomer.name, phone: existingCustomer.phone, email: existingCustomer.email },
+        {
+          name: existingCustomer.name,
+          phone: existingCustomer.phone,
+          email: existingCustomer.email,
+        },
         { name: updatedCustomer.name, phone: updatedCustomer.phone, email: updatedCustomer.email }
       );
     }

@@ -3,7 +3,7 @@ import { CustomerAuthService } from './customer-auth.service';
 import { TenantRequest } from '@middlewares/tenant.middleware';
 import { CustomerRequest } from '@middlewares/customer-auth.middleware';
 import { asyncHandler } from '@utils/asyncHandler';
-import { CustomerRegisterInput, CustomerLoginInput } from './customer.validation';
+import { CustomerRegisterInput, CustomerLoginInput } from './customer-auth.validation';
 
 export class CustomerAuthController {
   private readonly customerAuthService: CustomerAuthService;

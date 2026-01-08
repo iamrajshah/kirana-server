@@ -31,14 +31,24 @@ router.get('/', hasPermission('CUSTOMER_VIEW'), controller.getAll);
  * @desc    Get customer by ID
  * @access  CUSTOMER_VIEW permission
  */
-router.get('/:id', hasPermission('CUSTOMER_VIEW'), validate(getCustomerByIdSchema), controller.getById);
+router.get(
+  '/:id',
+  hasPermission('CUSTOMER_VIEW'),
+  validate(getCustomerByIdSchema),
+  controller.getById
+);
 
 /**
  * @route   POST /customers
  * @desc    Create customer
  * @access  CUSTOMER_CREATE permission
  */
-router.post('/', hasPermission('CUSTOMER_CREATE'), validate(createCustomerSchema), controller.create);
+router.post(
+  '/',
+  hasPermission('CUSTOMER_CREATE'),
+  validate(createCustomerSchema),
+  controller.create
+);
 
 /**
  * @route   PATCH /customers/:id
