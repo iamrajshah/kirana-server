@@ -8,26 +8,27 @@ datasource db {
 }
 
 model Tenant {
-  id               BigInt             @id @default(autoincrement())
-  name             String             @db.VarChar(100)
-  owner_name       String?            @db.VarChar(100)
-  phone            String             @db.VarChar(15)
-  email            String?            @db.VarChar(100)
-  gst_number       String?            @db.VarChar(20)
-  status           tenants_status?    @default(ACTIVE)
-  created_at       DateTime?          @default(now()) @db.DateTime(0)
-  updated_at       DateTime?          @default(now()) @db.DateTime(0)
-  activity_logs    activity_logs[]
-  categories       categories[]
-  customer_ledger  customer_ledger[]
-  customers        Customer[]
-  import_jobs      import_jobs[]
-  inventory        Inventory[]
-  invoices         Invoice[]
-  payments         Payment[]
-  product_variants product_variants[]
-  products         Product[]
-  users            User[]
+  id                    BigInt                  @id @default(autoincrement())
+  name                  String                  @db.VarChar(100)
+  owner_name            String?                 @db.VarChar(100)
+  phone                 String                  @db.VarChar(15)
+  email                 String?                 @db.VarChar(100)
+  gst_number            String?                 @db.VarChar(20)
+  status                tenants_status?         @default(ACTIVE)
+  created_at            DateTime?               @default(now()) @db.DateTime(0)
+  updated_at            DateTime?               @default(now()) @db.DateTime(0)
+  activity_logs         activity_logs[]
+  categories            categories[]
+  customer_ledger       customer_ledger[]
+  customers             Customer[]
+  import_jobs           import_jobs[]
+  inventory             Inventory[]
+  invoices              Invoice[]
+  payments              Payment[]
+  product_variants      product_variants[]
+  products              Product[]
+  supplier_bank_details supplier_bank_details[]
+  users                 User[]
 
   @@map("tenants")
 }
@@ -369,15 +370,16 @@ model supplier_ledger {
 }
 
 model suppliers {
-  id                BigInt              @id @default(autoincrement())
-  tenant_id         BigInt
-  name              String              @db.VarChar(255)
-  phone             String?             @db.VarChar(20)
-  email             String?             @db.VarChar(255)
-  address           String?             @db.Text
-  is_active         Boolean?            @default(true)
-  created_at        DateTime?           @default(now()) @db.DateTime(0)
-  purchase_invoices purchase_invoices[]
+  id                    BigInt                  @id @default(autoincrement())
+  tenant_id             BigInt
+  name                  String                  @db.VarChar(255)
+  phone                 String?                 @db.VarChar(20)
+  email                 String?                 @db.VarChar(255)
+  address               String?                 @db.Text
+  is_active             Boolean?                @default(true)
+  created_at            DateTime?               @default(now()) @db.DateTime(0)
+  purchase_invoices     purchase_invoices[]
+  supplier_bank_details supplier_bank_details[]
 
   @@unique([tenant_id, phone], map: "tenant_id")
   @@index([tenant_id], map: "idx_supplier_tenant")
@@ -453,6 +455,27 @@ model payment_intents {
   created_at     DateTime?            @default(now()) @db.DateTime(0)
 
   @@index([order_id], map: "idx_payment_intent_order")
+}
+
+model supplier_bank_details {
+  id                  BigInt    @id @default(autoincrement())
+  tenant_id           BigInt
+  supplier_id         BigInt
+  account_holder_name String    @db.VarChar(150)
+  bank_name           String    @db.VarChar(150)
+  account_number      String    @db.VarChar(50)
+  ifsc_code           String    @db.VarChar(20)
+  branch_name         String?   @db.VarChar(150)
+  account_type        String?   @db.VarChar(20)
+  is_primary          Boolean?  @default(true)
+  is_active           Boolean?  @default(true)
+  created_at          DateTime? @default(now()) @db.DateTime(0)
+  updated_at          DateTime? @default(now()) @db.DateTime(0)
+  suppliers           suppliers @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "supplier_bank_supplier_fk")
+  tenants             Tenant    @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "supplier_bank_tenant_fk")
+
+  @@index([supplier_id], map: "idx_supplier_bank_supplier")
+  @@index([tenant_id], map: "idx_supplier_bank_tenant")
 }
 
 enum role_permissions_role {

@@ -10,12 +10,16 @@ import {
   getSupplierLedgerSchema,
   makePaymentSchema,
 } from './supplier.validation';
+import bankAccountRoutes from './bank-account.routes';
 
 const router = Router();
 const controller = new SupplierController();
 
 // All routes require authentication
 router.use(authenticate);
+
+// Bank account routes (nested under suppliers)
+router.use('/', bankAccountRoutes);
 
 /**
  * @route   POST /suppliers
