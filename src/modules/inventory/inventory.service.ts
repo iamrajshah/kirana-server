@@ -40,6 +40,13 @@ export class InventoryService {
                     id: item.product_variants.products.id.toString(),
                     name: item.product_variants.products.name,
                     is_active: item.product_variants.products.is_active,
+                    category: item.product_variants.products.categories
+                      ? {
+                          id: item.product_variants.products.categories.id.toString(),
+                          name: item.product_variants.products.categories.name,
+                          is_active: item.product_variants.products.categories.is_active,
+                        }
+                      : null,
                   }
                 : null,
             }

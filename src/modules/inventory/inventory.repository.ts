@@ -47,7 +47,11 @@ export class InventoryRepository {
         include: {
           product_variants: {
             include: {
-              products: true,
+              products: {
+                include: {
+                  categories: true,
+                },
+              },
             },
           },
         },
