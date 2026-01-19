@@ -25,6 +25,7 @@ model Tenant {
   inventory             Inventory[]
   invoices              Invoice[]
   payments              Payment[]
+  product_barcodes      product_barcodes[]
   product_variants      product_variants[]
   products              Product[]
   supplier_bank_details supplier_bank_details[]
@@ -77,16 +78,19 @@ model Product {
   id                     BigInt                   @id @default(autoincrement())
   tenant_id              BigInt
   category_id            BigInt?
+  product_master_id      BigInt?
   name                   String?                  @db.VarChar(150)
   image_url              String?                  @db.VarChar(255)
   is_active              Boolean                  @default(true)
   product_variants       product_variants[]
+  product_master         product_master?          @relation(fields: [product_master_id], references: [id], onUpdate: NoAction, map: "fk_products_product_master")
   tenants                Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "products_ibfk_1")
   categories             categories?              @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "products_ibfk_2")
   purchase_invoice_items purchase_invoice_items[]
 
   @@index([category_id], map: "category_id")
   @@index([tenant_id, is_active], map: "idx_products_active")
+  @@index([product_master_id], map: "idx_products_product_master")
   @@map("products")
 }
 
@@ -277,6 +281,7 @@ model product_variants {
   selling_price          Decimal?                    @db.Decimal(10, 2)
   inventory              Inventory?
   invoice_items          InvoiceItem[]
+  product_barcodes       product_barcodes[]
   tenants                Tenant                      @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "product_variants_ibfk_1")
   products               Product                     @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "product_variants_ibfk_2")
   purchase_invoice_items purchase_invoice_items[]
@@ -476,6 +481,37 @@ model supplier_bank_details {
 
   @@index([supplier_id], map: "idx_supplier_bank_supplier")
   @@index([tenant_id], map: "idx_supplier_bank_tenant")
+}
+
+model product_barcodes {
+  id               BigInt           @id @default(autoincrement())
+  tenant_id        BigInt
+  variant_id       BigInt
+  barcode          String           @db.VarChar(50)
+  is_active        Boolean?         @default(true)
+  created_at       DateTime?        @default(now()) @db.DateTime(0)
+  tenants          Tenant           @relation(fields: [tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_barcode_tenant")
+  product_variants product_variants @relation(fields: [variant_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_barcode_variant")
+
+  @@unique([tenant_id, barcode], map: "uq_tenant_barcode")
+  @@index([barcode], map: "idx_barcode")
+  @@index([variant_id], map: "idx_barcode_variant")
+}
+
+model product_master {
+  id                BigInt    @id @default(autoincrement())
+  name              String    @db.VarChar(255)
+  brand             String?   @db.VarChar(150)
+  category_name     String?   @db.VarChar(150)
+  default_image_url String?   @db.VarChar(255)
+  description       String?   @db.Text
+  is_active         Boolean?  @default(true)
+  created_at        DateTime? @default(now()) @db.DateTime(0)
+  updated_at        DateTime? @default(now()) @db.DateTime(0)
+  products          Product[]
+
+  @@index([brand], map: "idx_product_master_brand")
+  @@index([name], map: "idx_product_master_name")
 }
 
 enum role_permissions_role {
