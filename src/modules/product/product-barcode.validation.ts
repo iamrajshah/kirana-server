@@ -49,6 +49,7 @@ export const createProductFromBarcodeSchema = z.object({
       sellingPrice: z.number().min(0, 'Selling price must be non-negative'),
       unit: z.string().max(10).optional().nullable(),
       unitValue: z.number().min(0).optional().nullable(),
+      imageUrl: z.string().optional().nullable(),
     }),
     
     inventory: z.object({

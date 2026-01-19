@@ -412,6 +412,7 @@ export class ProductBarcodeService {
         mrp_price: data.variant.mrp,
         selling_price: data.variant.sellingPrice,
         size: sizeString,
+        image_url: data.variant.imageUrl || null,
       },
       data.barcode,
       data.inventory.quantity,

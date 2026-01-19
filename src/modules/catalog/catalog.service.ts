@@ -35,6 +35,8 @@ export class CatalogService {
         const mrpPrice = variant.mrp_price ? Number(variant.mrp_price) : 0;
         const quantity = variant.inventory?.quantity !== undefined ? Number(variant.inventory.quantity) : 0;
 
+        const variantImageUrl = variant.image_url || product.image_url || fallbackImage;
+
         return {
           id: variant.id.toString(),
           brand: variant.brand || '',
@@ -45,14 +47,16 @@ export class CatalogService {
           sku: variant.sku || '',
           unit: variant.size || variant.packaging || 'unit',
           quantity: quantity,
-          image_url: variant.image_url || product.image_url || fallbackImage,
+          image_url: variantImageUrl,
         };
       }) || [];
+
+      const productImageUrl = product.image_url || (variants.length > 0 && variants[0].image_url) || fallbackImage;
 
       return {
         id: product.id.toString(),
         name: product.name,
-        image_url: product.image_url || fallbackImage,
+        image_url: productImageUrl,
         category_id: product.category_id?.toString(),
         category_name: product.categories?.name,
         variants,

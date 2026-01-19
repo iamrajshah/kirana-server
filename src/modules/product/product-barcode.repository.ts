@@ -184,13 +184,15 @@ export class ProductBarcodeRepository {
       mrp_price: number;
       selling_price: number;
       size?: string | null;
+      image_url?: string | null;
     },
     barcodeValue: string,
     quantity: number,
     existingProductMaster?: product_master
   ) {
-    return prisma.$transaction(async (tx) => {
-      // Step 1: Find or create product master
+    return prisma.$transaction(
+      async (tx) => {
+        // Step 1: Find or create product master
       let productMaster: product_master;
       if (existingProductMaster) {
         productMaster = existingProductMaster;
@@ -224,6 +226,7 @@ export class ProductBarcodeRepository {
           selling_price: variantData.selling_price,
           price: variantData.selling_price,
           size: variantData.size,
+          image_url: variantData.image_url,
         },
       });
 
@@ -252,6 +255,10 @@ export class ProductBarcodeRepository {
         barcode,
         inventory,
       };
-    });
+      },
+      {
+        timeout: 10000, // 10 seconds timeout
+      }
+    );
   }
 }
