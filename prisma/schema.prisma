@@ -575,6 +575,9 @@ enum product_variants_packaging {
   BOTTLE
   CAN
   BOX
+  PACKET
+  JAR
+  LOOSE
 }
 
 enum tenants_status {

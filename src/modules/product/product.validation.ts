@@ -46,7 +46,10 @@ export const createVariantSchema = z.object({
   body: z.object({
     brand: z.string().max(100).optional().nullable(),
     size: z.string().max(50).optional().nullable(),
-    packaging: z.enum(['PACKET', 'BOX', 'BOTTLE', 'LOOSE', 'KG']).optional().nullable(),
+    packaging: z
+      .enum(['POUCH', 'BOTTLE', 'CAN', 'BOX', 'PACKET', 'JAR', 'LOOSE'])
+      .optional()
+      .nullable(),
     price: z
       .number({
         required_error: 'Price is required',
@@ -67,7 +70,10 @@ export const updateVariantSchema = z.object({
     .object({
       brand: z.string().max(100).optional().nullable(),
       size: z.string().max(50).optional().nullable(),
-      packaging: z.enum(['PACKET', 'BOX', 'BOTTLE', 'LOOSE', 'KG']).optional().nullable(),
+      packaging: z
+        .enum(['POUCH', 'BOTTLE', 'CAN', 'BOX', 'PACKET', 'JAR', 'LOOSE'])
+        .optional()
+        .nullable(),
       price: z.number().min(0).optional(),
       selling_price: z.number().min(0).optional().nullable(),
       gst_percent: z.number().min(0).max(100).optional().nullable(),
