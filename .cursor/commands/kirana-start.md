@@ -1,5 +1,5 @@
 ---
-description: Start work on Kirana POS. Run at the beginning of a session to pick up a GitHub issue, scope a new one, or ship a PR. Validates the environment first, then routes to the right Compound Engineering workflow and holds the work to the GitHub issue as the source of truth. Use when someone says kirana-start, "what should I work on", "pick up issue N", or is beginning Kirana work of any kind.
+description: Start Kirana POS development from a Jira issue and take it through the Compound Engineering workflow to a reviewed pull request. Use when someone says kirana-start, asks what to work on, names a KIR issue, or wants the Jira-to-PR demo. This is the Developer lane; it does not replace QA or product-management workflows.
 ---
 
 The person invoked `/kirana-start` from the Cursor slash menu.

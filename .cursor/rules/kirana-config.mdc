@@ -10,6 +10,7 @@ Run the installer, then preflight.
 
 ```bash
 kirana-skill/kirana-config/scripts/setup.sh
+kirana-skill/kirana-config/scripts/setup.sh --auth
 kirana-skill/install.sh --cursor --codex
 kirana-skill/kirana-start/scripts/preflight.sh
 ```
@@ -26,7 +27,10 @@ Under the same parent as `kirana-skill`:
 
 - Node 18+, npm, git, GitHub CLI (`gh auth login`)
 - MySQL 8 if they will run the API locally
-- Cursor Compound Engineering plugin (optional but useful)
+- Cursor Compound Engineering plugin (required for the Developer demo)
+- Jira Cloud API token for the personal `shahrajesh2113@yahoo.com` account
+
+`setup.sh --auth` stores Jira settings with mode `0600` in `~/.config/kirana-start/env`. Never commit or paste that file into chat. Creating or revoking the Atlassian token remains a user-approved account action.
 
 ## Editor
 
