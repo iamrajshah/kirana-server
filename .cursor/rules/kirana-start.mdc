@@ -1,0 +1,88 @@
+---
+description: Start work on Kirana POS. Run at the beginning of a session to pick up a GitHub issue, scope a new one, or ship a PR. Validates the environment first, then routes to the right Compound Engineering workflow and holds the work to the GitHub issue as the source of truth. Use when someone says kirana-start, "what should I work on", "pick up issue N", or is beginning Kirana work of any kind.
+globs:
+alwaysApply: false
+---
+
+# kirana-start
+
+The entry point for Kirana work.
+
+**GitHub Issues are the source of truth.** Not the code, not the chat. If the work is not an issue, help them open one first.
+
+Two repos, one product: `kirana-ui` (POS) and `kirana-server` (API). Not microservices.
+
+## Step 1 — preflight
+
+```bash
+kirana-skill/kirana-start/scripts/preflight.sh
+```
+
+Failures: stop and offer `/kirana-config`. Warnings (MySQL not running, CE plugin missing) are not blockers unless this session needs them.
+
+## Step 2 — pick the issue
+
+List open issues (both repos):
+
+```bash
+kirana-skill/kirana-start/scripts/gh-issue.sh mine
+kirana-skill/kirana-start/scripts/gh-issue.sh list
+```
+
+If they name a number, `gh-issue.sh show <repo> <n>` (repo is `ui` or `server`).
+
+If they need a new issue: draft title + body, **create nothing until they confirm**, then:
+
+```bash
+kirana-skill/kirana-start/scripts/gh-issue.sh create ui|server "<title>" "<body>"
+```
+
+Put the issue in **In progress** with a comment that work started (Projects optional; a comment is enough).
+
+## Step 3 — choose the repo and branch
+
+| Change lives in | Repo |
+| --- | --- |
+| Screen, RTK slice, Ionic, Capacitor | `kirana-ui` |
+| Route, Prisma, JWT, tenant, import | `kirana-server` |
+| API contract | usually **both** — server first, then UI |
+
+Default base branch is `dev`. Create:
+
+```bash
+kirana-skill/kirana-start/scripts/branch.sh <ui|server> <issue-number> <short-slug>
+```
+
+Do not create a branch on a dirty tree without parking or committing (ask them).
+
+## Step 4 — route the work
+
+Use Compound Engineering if the plugin is installed; otherwise do the same work in this chat.
+
+| Kind | Skill |
+| --- | --- |
+| Bug / wrong behaviour | `ce-debug`, then `ce-work` |
+| Known build | `ce-work` |
+| Vague idea | `ce-brainstorm` then `ce-plan` |
+| Plan already written | `ce-work` |
+| Done coding, ship | commit (when they ask) then `branch.sh` is already done; `finish.sh` |
+
+Read `kirana-context/` before changing tenant, ledger, invoice, or barcode behaviour.
+
+Read `kirana-skill/kirana-start/reference/dev.md` for the definition of done.
+
+## Step 5 — finish
+
+When they want a PR:
+
+```bash
+kirana-skill/kirana-start/scripts/finish.sh <ui|server>
+```
+
+That pushes the current branch and opens a PR **into `dev`**. Do not push or open a PR unless they asked.
+
+Link the GitHub issue in the PR body (`Fixes #N` if the issue is on the **same** repo).
+
+---
+
+_Generated from `kirana-start/SKILL.md` by `export.sh`. Do not edit directly._

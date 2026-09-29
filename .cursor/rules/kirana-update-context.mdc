@@ -1,0 +1,19 @@
+---
+description: Refresh kirana-context so the docs match the two app repos. Use when someone says kirana-update-context, a doc was wrong, or after a stretch of commits that changed behaviour.
+globs:
+alwaysApply: false
+---
+
+# kirana-update-context
+
+1. `git -C kirana-ui log --oneline -20` and the same for `kirana-server`.
+2. Read diffs that touch routes, Prisma, auth, or POS screens.
+3. Update only the files in `kirana-context/` that drifted (`kirana-ui/README.md`, `kirana-server/README.md`, `GLOSSARY.md`).
+4. Append a dated bullet to `PROVENANCE.md` with SHAs you used.
+5. Do not copy whole source files into context. Short maps only.
+
+This is documentation. Do not change `kirana-ui` or `kirana-server` from this skill.
+
+---
+
+_Generated from `kirana-update-context/SKILL.md` by `export.sh`. Do not edit directly._
