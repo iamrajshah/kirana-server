@@ -1,0 +1,22 @@
+---
+description: Pull the latest kirana-skill and reinstall Cursor/Codex files. Use when someone says kirana-reload, asks to refresh the skills, or wonders whether they are on the latest version.
+globs:
+alwaysApply: false
+---
+
+# kirana-reload
+
+From a clean `kirana-skill` checkout on its main branch:
+
+```bash
+git -C kirana-skill pull --ff-only
+kirana-skill/install.sh --cursor --codex
+```
+
+If the tree is dirty or you are on a skill feature branch, do not pull. Say so and leave it.
+
+Cursor: new chat to pick up changed rule text. Codex: new session.
+
+---
+
+_Generated from `kirana-reload/SKILL.md` by `export.sh`. Do not edit directly._

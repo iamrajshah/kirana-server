@@ -1,0 +1,43 @@
+---
+description: Set up or repair what kirana-start needs — Node, gh, sibling repos, Compound Engineering, Cursor install. Use when someone says kirana-config, cannot get preflight to pass, or is on a new machine.
+globs:
+alwaysApply: false
+---
+
+# kirana-config
+
+Run the installer, then preflight.
+
+```bash
+kirana-skill/kirana-config/scripts/setup.sh
+kirana-skill/kirana-config/scripts/setup.sh --auth
+kirana-skill/install.sh --cursor --codex
+kirana-skill/kirana-start/scripts/preflight.sh
+```
+
+## Expected siblings
+
+Under the same parent as `kirana-skill`:
+
+- `kirana-ui` (clone `git@github.com:iamrajshah/kirana-ui.git`)
+- `kirana-server` (clone `git@github.com:iamrajshah/kirana-server.git`)
+- `kirana-context`
+
+## Tools
+
+- Node 18+, npm, git, GitHub CLI (`gh auth login`)
+- MySQL 8 if they will run the API locally
+- Cursor Compound Engineering plugin (required for the Developer demo)
+- Jira Cloud API token for the personal `shahrajesh2113@yahoo.com` account
+
+`setup.sh --auth` stores Jira settings with mode `0600` in `~/.config/kirana-start/env`. Never commit or paste that file into chat. Creating or revoking the Atlassian token remains a user-approved account action.
+
+## Editor
+
+Open `kirana.code-workspace` (parent folder) so both apps, skill, and context are visible. New chat after install so rule text loads.
+
+Do not write secrets into the skill repo. `.env` stays in each app, untracked.
+
+---
+
+_Generated from `kirana-config/SKILL.md` by `export.sh`. Do not edit directly._

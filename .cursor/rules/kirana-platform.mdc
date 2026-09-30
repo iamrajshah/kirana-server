@@ -1,0 +1,49 @@
+---
+description: Orientation for Kirana POS — two git repos, one Express API, one Ionic POS, MySQL tenants. Use when a question is about which repo to change, how a request reaches the database, what tenant_id means, or how invoices, inventory, or barcodes fit together. Also use before a change that spans UI and server.
+globs:
+alwaysApply: false
+---
+
+# kirana-platform
+
+Read `kirana-context/README.md` and `kirana-context/GLOSSARY.md` first.
+
+## Which repo
+
+| You are touching | Repo |
+| --- | --- |
+| Ionic page, RTK Query, Redux, Tailwind, Capacitor | `kirana-ui` |
+| Express route, Prisma, Zod, JWT, file import | `kirana-server` |
+| New field on an invoice/product/customer | Prisma in server, then types + form in UI |
+| Shopper cart/order | server modules `cart` / `order` / `catalog` / `customer-auth`; UI is `kirana-ui-customer` if present |
+
+There is no queue, no extra Node service, no separate “billing microservice”.
+
+## How a POS request travels
+
+1. UI `fetchBaseQuery` → `VITE_API_BASE_URL` + path (e.g. `/invoices`).
+2. Express `app.use('/api/v1', routes)`.
+3. Auth middleware reads Bearer JWT (`userId`, `tenantId`, roles).
+4. `extractTenant` sets `req.tenantId`.
+5. Service/repository filters by `tenant_id`.
+6. Prisma → MySQL.
+
+If the UI shows a 401 loop: refresh is `POST /auth/refresh-token`. Check tokens in `localStorage` (`access_token`, `refresh_token`).
+
+If the UI talks to Railway instead of localhost: `VITE_API_BASE_URL` is unset and `constants` fall back to production.
+
+## Recipes
+
+- `kirana-platform/recipes/trace-a-request.md`
+- `kirana-platform/recipes/add-a-column.md`
+
+## Invariants
+
+- Do not drop `tenant_id` from queries.
+- Do not add a new HTTP service for a new screen.
+- POS roles in the UI are OWNER / MANAGER / CASHIER.
+- Sales vs purchases: `invoices` vs `purchase_invoices`.
+
+---
+
+_Generated from `kirana-platform/SKILL.md` by `export.sh`. Do not edit directly._
