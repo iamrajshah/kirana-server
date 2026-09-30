@@ -1,5 +1,5 @@
 ---
-description: Start work on Kirana POS. Run at the beginning of a session to pick up a GitHub issue, scope a new one, or ship a PR. Validates the environment first, then routes to the right Compound Engineering workflow and holds the work to the GitHub issue as the source of truth. Use when someone says kirana-start, "what should I work on", "pick up issue N", or is beginning Kirana work of any kind.
+description: Start Kirana POS development from a Jira issue and take it through the Compound Engineering workflow to a reviewed pull request. Use when someone says kirana-start, asks what to work on, names a KIR issue, or wants the Jira-to-PR demo. This is the Developer lane; it does not replace QA or product-management workflows.
 globs:
 alwaysApply: false
 ---
@@ -8,7 +8,7 @@ alwaysApply: false
 
 The entry point for Kirana work.
 
-**GitHub Issues are the source of truth.** Not the code, not the chat. If the work is not an issue, help them open one first.
+**Jira project KIR is the source of truth.** Not the code, chat, or GitHub Issues. If work has no Jira issue, draft one and get confirmation before creating it.
 
 Two repos, one product: `kirana-ui` (POS) and `kirana-server` (API). Not microservices.
 
@@ -18,26 +18,25 @@ Two repos, one product: `kirana-ui` (POS) and `kirana-server` (API). Not microse
 kirana-skill/kirana-start/scripts/preflight.sh
 ```
 
-Failures: stop and offer `/kirana-config`. Warnings (MySQL not running, CE plugin missing) are not blockers unless this session needs them.
+Failures stop the run. Use `/kirana-config`, then rerun preflight. Compound Engineering and authenticated Jira/GitHub access are required for the demo; MySQL is required only when the selected work needs the local API.
 
-## Step 2 — pick the issue
+## Step 2 — establish the lane and pick the issue
 
-List open issues (both repos):
+Ask who is working. The supported demo lane is **Developer**. If they choose another role, explain that its lane is not configured rather than pretending to run it.
 
-```bash
-kirana-skill/kirana-start/scripts/gh-issue.sh mine
-kirana-skill/kirana-start/scripts/gh-issue.sh list
-```
-
-If they name a number, `gh-issue.sh show <repo> <n>` (repo is `ui` or `server`).
-
-If they need a new issue: draft title + body, **create nothing until they confirm**, then:
+List the current sprint and the developer's assigned issues:
 
 ```bash
-kirana-skill/kirana-start/scripts/gh-issue.sh create ui|server "<title>" "<body>"
+kirana-skill/kirana-start/scripts/jira.sh sprint
+kirana-skill/kirana-start/scripts/jira.sh mine
+kirana-skill/kirana-start/scripts/jira.sh list
 ```
 
-Put the issue in **In progress** with a comment that work started (Projects optional; a comment is enough).
+If they name a key, read it with `jira.sh issue KIR-N` and treat its description and acceptance criteria as the contract.
+
+Do not silently create, transition, assign, or comment on Jira. The helper previews writes and requires `--confirm` after the user approves the exact preview. For new work, preview `jira.sh create Task|Bug "title" "description"`; after approval, rerun with `--confirm`.
+
+Start the selected issue by previewing `jira.sh start KIR-N`; after approval, rerun it with `--confirm`.
 
 ## Step 3 — choose the repo and branch
 
@@ -50,38 +49,51 @@ Put the issue in **In progress** with a comment that work started (Projects opti
 Default base branch is `dev`. Create:
 
 ```bash
-kirana-skill/kirana-start/scripts/branch.sh <ui|server> <issue-number> <short-slug>
+kirana-skill/kirana-start/scripts/branch.sh <ui|server> <KIR-key> <short-slug>
 ```
 
 Do not create a branch on a dirty tree without parking or committing (ask them).
 
-## Step 4 — route the work
+## Step 4 — run Compound Engineering
 
-Use Compound Engineering if the plugin is installed; otherwise do the same work in this chat.
+State this clearly in the demo: **"Kirana orchestration is now handing the Jira issue to Compound Engineering."** Then invoke the installed `lfg` skill with an issue packet containing:
 
-| Kind | Skill |
-| --- | --- |
-| Bug / wrong behaviour | `ce-debug`, then `ce-work` |
-| Known build | `ce-work` |
-| Vague idea | `ce-brainstorm` then `ce-plan` |
-| Plan already written | `ce-work` |
-| Done coding, ship | commit (when they ask) then `branch.sh` is already done; `finish.sh` |
+- Jira key, URL, type, description, and acceptance criteria;
+- selected repo and the current feature branch;
+- `dev` as the PR base;
+- a requirement to link the Jira URL in the PR;
+- a requirement to stop at an open PR and never merge without explicit permission.
+
+`lfg` is the orchestrator. It visibly routes through the applicable CE stages: planning or debugging, `ce-work`, simplification, `ce-code-review`, browser testing when relevant, `ce-commit-push-pr`, and CI watching. Do not replace this with an ordinary chat implementation. If `lfg` or a required CE child skill is unavailable, stop and repair the plugin with `/kirana-config`.
 
 Read `kirana-context/` before changing tenant, ledger, invoice, or barcode behaviour.
 
 Read `kirana-skill/kirana-start/reference/dev.md` for the definition of done.
 
-## Step 5 — finish
+## Step 5 — PR, merge, and Jira close-out
 
-When they want a PR:
+The CE run ends with an open PR into `dev`; it does not merge. Present the PR URL and test/CI evidence. Merge only when the user explicitly asks for that PR to be merged.
+
+`finish.sh` is a recovery path if CE completed the code but could not ship:
 
 ```bash
 kirana-skill/kirana-start/scripts/finish.sh <ui|server>
 ```
 
-That pushes the current branch and opens a PR **into `dev`**. Do not push or open a PR unless they asked.
+It pushes the current branch and opens a PR **into `dev`**. Do not run it if `lfg` already created the PR.
 
-Link the GitHub issue in the PR body (`Fixes #N` if the issue is on the **same** repo).
+After the PR is actually merged, preview `jira.sh done KIR-N <PR-URL>` and, after approval, rerun with `--confirm`. Never mark Jira Done merely because a PR exists.
+
+## Demo narration
+
+Show these checkpoints rather than hiding the orchestration:
+
+1. Free Jira sprint and selected KIR issue.
+2. Repo and `KIR-N-slug` branch from `dev`.
+3. Compound Engineering route selected by `lfg`.
+4. Local verification and CE code-review result.
+5. Open GitHub PR into `dev` and CI result.
+6. Explicit merge decision, followed by Jira Done.
 
 ---
 
